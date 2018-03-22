@@ -1,17 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout
+<TextView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/name_textview"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="8dp">
-
-    <TextView
-        android:id="@+id/name_textview"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        tools:text="Key Lime Pie"
-        android:textSize="17sp"
-        android:textColor="@color/primary_text"/>
-
-</FrameLayout>
+    android:padding="8dp"
+    tools:text="Key Lime Pie"
+    android:textSize="17sp"
+    android:textColor="@color/primary_text"/>

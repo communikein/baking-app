@@ -25,6 +25,7 @@ import it.communikein.bakingapp.AppExecutors;
 import it.communikein.bakingapp.R;
 import it.communikein.bakingapp.StepsListAdapter;
 import it.communikein.bakingapp.Utils;
+import it.communikein.bakingapp.data.contentprovider.RecipeContract;
 import it.communikein.bakingapp.data.database.BakingDatabase;
 import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.data.model.Step;
@@ -211,8 +212,9 @@ public class RecipeDetailActivity extends AppCompatActivity implements
 
     private void updateFavourite(Recipe recipe, FavouriteRecipeUpdateListener listener) {
         mExecutors.diskIO().execute(() -> {
-            if (recipe.isFavourite())
+            if (recipe.isFavourite()) {
                 mDatabase.recipesDao().deleteRecipe(recipe.getId());
+            }
             else {
                 mDatabase.recipesDao().addRecipe(recipe);
                 mDatabase.ingredientsDao().addIngredients(recipe.getIngredients());

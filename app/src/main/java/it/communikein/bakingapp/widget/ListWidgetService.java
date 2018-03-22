@@ -23,11 +23,11 @@ public class ListWidgetService extends RemoteViewsService {
 
     class ListRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory {
 
-        Context mContext;
+        String mPackageName;
         List<Ingredient> mIngredients;
 
-        public ListRemoteViewsFactory(Context applicationContext, List<Ingredient> ingredients) {
-            this.mContext = applicationContext;
+        ListRemoteViewsFactory(Context applicationContext, List<Ingredient> ingredients) {
+            this.mPackageName = applicationContext.getPackageName();
             this.mIngredients = ingredients;
         }
 
@@ -47,7 +47,7 @@ public class ListWidgetService extends RemoteViewsService {
         public RemoteViews getViewAt(int position) {
             Ingredient ingredient = mIngredients.get(position);
 
-            RemoteViews remoteViews = new RemoteViews(mContext.getPackageName(), R.layout.list_item_ingredient);
+            RemoteViews remoteViews = new RemoteViews(mPackageName, R.layout.list_item_ingredient);
             remoteViews.setTextViewText(R.id.name_textview, ingredient.getIngredient());
 
             return remoteViews;

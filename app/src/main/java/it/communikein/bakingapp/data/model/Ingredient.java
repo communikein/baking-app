@@ -20,15 +20,15 @@ import static it.communikein.bakingapp.data.contentprovider.IngredientContract.I
 import static it.communikein.bakingapp.data.contentprovider.IngredientContract.IngredientEntry.COLUMN_MEASURE;
 import static it.communikein.bakingapp.data.contentprovider.IngredientContract.IngredientEntry.COLUMN_QUANTITY;
 import static it.communikein.bakingapp.data.contentprovider.IngredientContract.IngredientEntry.COLUMN_RECIPE_ID;
+import static it.communikein.bakingapp.data.contentprovider.IngredientContract.IngredientEntry.TABLE_NAME;
+import static it.communikein.bakingapp.data.model.Ingredient.ID;
 
-@Entity(tableName = Ingredient.TABLE_NAME,
+@Entity(tableName = TABLE_NAME,
         foreignKeys = @ForeignKey(entity = Recipe.class,
-                parentColumns = "id",
-                childColumns = "recipe_id",
+                parentColumns = ID,
+                childColumns = COLUMN_RECIPE_ID,
                 onDelete = CASCADE))
 public class Ingredient implements Parcelable {
-
-    public static final String TABLE_NAME = "ingredients";
 
     public static final String ID = "id";
     public static final String RECIPE_ID = "recipe_id";

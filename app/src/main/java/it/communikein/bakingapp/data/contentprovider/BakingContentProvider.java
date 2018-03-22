@@ -18,6 +18,7 @@ import javax.inject.Inject;
 import dagger.Lazy;
 import dagger.android.AndroidInjection;
 import dagger.android.AndroidInjector;
+import dagger.android.DaggerContentProvider;
 import dagger.android.DispatchingAndroidInjector;
 import dagger.android.HasContentProviderInjector;
 import it.communikein.bakingapp.BakingApp;
@@ -28,6 +29,8 @@ import it.communikein.bakingapp.data.database.StepsDao;
 import it.communikein.bakingapp.data.model.Ingredient;
 import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.data.model.Step;
+
+import static it.communikein.bakingapp.data.contentprovider.StepContract.StepEntry.TABLE_NAME;
 
 
 public class BakingContentProvider extends ContentProvider implements
@@ -40,10 +43,10 @@ public class BakingContentProvider extends ContentProvider implements
     private static final int CODE_RECIPES_DIR = 1000;
     private static final int CODE_RECIPE_ITEM = 1001;
 
-    private static final int CODE_INGREDIENTS_DIR = 2000;
+    private static final int CODE_INGREDIENTS_RECIPE = 2000;
     private static final int CODE_INGREDIENT_ITEM = 2001;
 
-    private static final int CODE_STEPS_DIR = 3000;
+    private static final int CODE_STEPS_RECIPE = 3000;
     private static final int CODE_STEP_ITEM = 3001;
 
     /** The URI matcher. */
@@ -56,20 +59,18 @@ public class BakingContentProvider extends ContentProvider implements
     Lazy<BakingDatabase> bakingDatabase;
 
     static {
-        MATCHER.addURI(AUTHORITY, Recipe.TABLE_NAME, CODE_RECIPES_DIR);
-        MATCHER.addURI(AUTHORITY, Recipe.TABLE_NAME + "/#", CODE_RECIPE_ITEM);
+        MATCHER.addURI(AUTHORITY, RecipeContract.RecipeEntry.TABLE_NAME, CODE_RECIPES_DIR);
+        MATCHER.addURI(AUTHORITY, RecipeContract.RecipeEntry.TABLE_NAME + "/#", CODE_RECIPE_ITEM);
 
-        MATCHER.addURI(AUTHORITY, Ingredient.TABLE_NAME, CODE_INGREDIENTS_DIR);
-        MATCHER.addURI(AUTHORITY, Ingredient.TABLE_NAME + "/#", CODE_INGREDIENT_ITEM);
+        MATCHER.addURI(AUTHORITY, IngredientContract.IngredientEntry.TABLE_NAME, CODE_INGREDIENTS_RECIPE);
+        MATCHER.addURI(AUTHORITY, IngredientContract.IngredientEntry.TABLE_NAME + "/#", CODE_INGREDIENT_ITEM);
 
-        MATCHER.addURI(AUTHORITY, Step.TABLE_NAME, CODE_STEPS_DIR);
-        MATCHER.addURI(AUTHORITY, Step.TABLE_NAME + "/#", CODE_STEP_ITEM);
+        MATCHER.addURI(AUTHORITY, StepContract.StepEntry.TABLE_NAME, CODE_STEPS_RECIPE);
+        MATCHER.addURI(AUTHORITY, StepContract.StepEntry.TABLE_NAME + "/#", CODE_STEP_ITEM);
     }
-
 
     @Override
     public boolean onCreate() {
-        //AndroidInjection.inject(this);
         return true;
     }
 
@@ -78,11 +79,12 @@ public class BakingContentProvider extends ContentProvider implements
     public Cursor query(@NonNull Uri uri, @Nullable String[] projection, @Nullable String selection,
                         @Nullable String[] selectionArgs, @Nullable String sortOrder) {
         final Context context = getContext();
-        if (context == null) {
-            return null;
-        }
+        if (context == null) return null;
+
+        if (bakingDatabase == null) AndroidInjection.inject(this);
 
         Cursor cursor;
+        String id;
         final int code = MATCHER.match(uri);
         switch (code) {
             case CODE_RECIPES_DIR:
@@ -90,15 +92,17 @@ public class BakingContentProvider extends ContentProvider implements
                 cursor.setNotificationUri(context.getContentResolver(), uri);
                 break;
 
-            case CODE_INGREDIENT_ITEM:
+            case CODE_INGREDIENTS_RECIPE:
+                id = uri.getQueryParameter(IngredientContract.IngredientEntry.COLUMN_RECIPE_ID);
                 cursor = bakingDatabase.get().ingredientsDao()
-                        .getCursorRecipeIngredients((int) ContentUris.parseId(uri));
+                        .getCursorRecipeIngredients(Integer.valueOf(id));
                 cursor.setNotificationUri(context.getContentResolver(), uri);
                 break;
 
-            case CODE_STEP_ITEM:
+            case CODE_STEPS_RECIPE:
+                id = uri.getQueryParameter(StepContract.StepEntry.COLUMN_RECIPE_ID);
                 cursor = bakingDatabase.get().stepsDao()
-                        .getCursorRecipeSteps((int) ContentUris.parseId(uri));
+                        .getCursorRecipeSteps(Integer.valueOf(id));
                 cursor.setNotificationUri(context.getContentResolver(), uri);
                 break;
 
@@ -125,6 +129,11 @@ public class BakingContentProvider extends ContentProvider implements
 
         long id;
         switch (MATCHER.match(uri)) {
+            case CODE_RECIPE_ITEM:
+                id = bakingDatabase.get().recipesDao()
+                        .addRecipe(Recipe.fromContentValues(values));
+                context.getContentResolver().notifyChange(uri, null);
+                return ContentUris.withAppendedId(uri, id);
             case CODE_INGREDIENT_ITEM:
                 id = bakingDatabase.get().ingredientsDao()
                         .addIngredient(Ingredient.fromContentValues(values));
@@ -148,14 +157,14 @@ public class BakingContentProvider extends ContentProvider implements
         }
 
         switch (MATCHER.match(uri)) {
-            case CODE_INGREDIENTS_DIR:
+            case CODE_INGREDIENTS_RECIPE:
                 final ArrayList<Ingredient> ingredients = new ArrayList<>();
                 for (ContentValues ingredient : valuesArray)
                     ingredients.add(Ingredient.fromContentValues(ingredient));
 
                 bakingDatabase.get().ingredientsDao().addIngredients(ingredients);
                 return valuesArray.length;
-            case CODE_STEPS_DIR:
+            case CODE_STEPS_RECIPE:
                 final ArrayList<Step> steps = new ArrayList<>();
                 for (ContentValues step : valuesArray)
                     steps.add(Step.fromContentValues(step));
@@ -170,20 +179,26 @@ public class BakingContentProvider extends ContentProvider implements
     @Override
     public int delete(@NonNull Uri uri, @Nullable String selection, @Nullable String[] selectionArgs) {
         final Context context = getContext();
-        if (context == null) {
-            return 0;
-        }
+        if (context == null) return 0;
 
         int count;
+        String id;
         switch (MATCHER.match(uri)) {
-            case CODE_INGREDIENT_ITEM:
-                count = bakingDatabase.get().ingredientsDao()
-                        .deleteRecipeIngredients((int) ContentUris.parseId(uri));
+            case CODE_RECIPE_ITEM:
+                count = bakingDatabase.get().recipesDao()
+                        .deleteRecipe((int) ContentUris.parseId(uri));
                 context.getContentResolver().notifyChange(uri, null);
                 return count;
-            case CODE_STEP_ITEM:
+            case CODE_INGREDIENTS_RECIPE:
+                id = uri.getQueryParameter(IngredientContract.IngredientEntry.COLUMN_RECIPE_ID);
+                count = bakingDatabase.get().ingredientsDao()
+                        .deleteRecipeIngredients(Integer.parseInt(id));
+                context.getContentResolver().notifyChange(uri, null);
+                return count;
+            case CODE_STEPS_RECIPE:
+                id = uri.getQueryParameter(StepContract.StepEntry.COLUMN_RECIPE_ID);
                 count = bakingDatabase.get().stepsDao()
-                        .deleteRecipeSteps((int) ContentUris.parseId(uri));
+                        .deleteRecipeSteps(Integer.parseInt(id));
                 context.getContentResolver().notifyChange(uri, null);
                 return count;
             default:

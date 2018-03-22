@@ -4,10 +4,12 @@ import android.arch.persistence.room.ColumnInfo;
 import android.arch.persistence.room.Entity;
 import android.arch.persistence.room.Ignore;
 import android.arch.persistence.room.PrimaryKey;
+import android.content.ContentUris;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.v4.content.ContextCompat;
 
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
@@ -23,11 +25,10 @@ import static it.communikein.bakingapp.data.contentprovider.RecipeContract.Recip
 import static it.communikein.bakingapp.data.contentprovider.RecipeContract.RecipeEntry.COLUMN_IMAGE;
 import static it.communikein.bakingapp.data.contentprovider.RecipeContract.RecipeEntry.COLUMN_NAME;
 import static it.communikein.bakingapp.data.contentprovider.RecipeContract.RecipeEntry.COLUMN_SERVINGS;
+import static it.communikein.bakingapp.data.contentprovider.RecipeContract.RecipeEntry.TABLE_NAME;
 
-@Entity(tableName = Recipe.TABLE_NAME)
+@Entity(tableName = TABLE_NAME)
 public class Recipe implements Parcelable {
-
-    public static final String TABLE_NAME = "recipes";
 
     public static final String ID = "id";
     public static final String NAME = "name";
@@ -211,6 +212,17 @@ public class Recipe implements Parcelable {
         return gson.toJson(this, type);
     }
 
+    public ContentValues toContentValues() {
+        ContentValues contentValues = new ContentValues();
+
+        contentValues.put(RecipeContract.RecipeEntry.COLUMN_ID, getId());
+        contentValues.put(RecipeContract.RecipeEntry.COLUMN_NAME, getName());
+        contentValues.put(RecipeContract.RecipeEntry.COLUMN_SERVINGS, getServings());
+        contentValues.put(RecipeContract.RecipeEntry.COLUMN_IMAGE, getImage());
+
+        return contentValues;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (! (obj instanceof Recipe)) return false;
@@ -237,7 +249,10 @@ public class Recipe implements Parcelable {
         return result.toString();
     }
 
-
+    @Override
+    public String toString() {
+        return getName();
+    }
 
     @Override
     public int describeContents() {

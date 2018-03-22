@@ -4,26 +4,28 @@ import android.appwidget.AppWidgetManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.database.Cursor;
 import android.databinding.DataBindingUtil;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.ArrayAdapter;
 
 import java.util.ArrayList;
 
-import dagger.android.AndroidInjection;
 import it.communikein.bakingapp.R;
-import it.communikein.bakingapp.data.contentprovider.IngredientContract;
-import it.communikein.bakingapp.data.contentprovider.RecipeContract;
-import it.communikein.bakingapp.data.model.Ingredient;
 import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.databinding.RecipeIngredientsWidgetConfigureBinding;
 
 /**
  * The configuration screen for the {@link RecipeIngredientsWidget RecipeIngredientsWidget} AppWidget.
  */
-public class RecipeIngredientsWidgetConfigureActivity extends AppCompatActivity {
+public class RecipeIngredientsWidgetConfigureActivity extends AppCompatActivity implements
+        LoaderManager.LoaderCallbacks<ArrayList<Recipe>> {
+
+    private static final int LOADER_RECIPES = 123;
 
     private static final String PREFS_NAME = "it.communikein.bakingapp.widget.RecipeIngredientsWidget";
     private static final String PREF_PREFIX_KEY = "appwidget_";
@@ -67,16 +69,9 @@ public class RecipeIngredientsWidgetConfigureActivity extends AppCompatActivity 
         mBinding = DataBindingUtil.setContentView(this, R.layout.recipe_ingredients_widget_configure);
         mBinding.setButton.setOnClickListener(v -> setRecipe());
 
-        Cursor cursor = getContentResolver().query(
-                RecipeContract.RecipeEntry.CONTENT_URI,
-                null,
-                null,
-                null,
-                null);
-        ArrayList<Recipe> recipes = parseCursor(cursor);
-        ArrayAdapter<Recipe> recipesAdapter = new ArrayAdapter<>(this,
-                R.layout.spinner_item_recipe, recipes.toArray(new Recipe[recipes.size()]));
-        mBinding.recipesSpinner.setAdapter(recipesAdapter);
+        getSupportLoaderManager()
+                .restartLoader(LOADER_RECIPES, null, this)
+                .forceLoad();
 
         // Find the widget id from the intent.
         Intent intent = getIntent();
@@ -91,36 +86,6 @@ public class RecipeIngredientsWidgetConfigureActivity extends AppCompatActivity 
             finish();
             return;
         }
-    }
-
-    private ArrayList<Recipe> parseCursor(Cursor cursor) {
-        if (cursor == null || cursor.getCount() == 0) return null;
-
-        ArrayList<Recipe> recipes = new ArrayList<>();
-        while(cursor.moveToNext()){
-            Recipe recipe = Recipe.fromCursor(cursor);
-
-            String selection = IngredientContract.IngredientEntry.COLUMN_RECIPE_ID + "=?";
-            String[] selectionArgs = new String[]{String.valueOf(recipe.getId())};
-            Cursor ingredientsCursor = getContentResolver().query(
-                    IngredientContract.IngredientEntry.CONTENT_URI,
-                    null,
-                    selection,
-                    selectionArgs,
-                    null);
-
-            if (ingredientsCursor == null || ingredientsCursor.getCount() == 0) continue;
-            ArrayList<Ingredient> ingredients = new ArrayList<>();
-            while (ingredientsCursor.moveToNext()) {
-                Ingredient ingredient = Ingredient.fromCursor(ingredientsCursor);
-                ingredients.add(ingredient);
-            }
-
-            recipe.setIngredients(ingredients);
-            recipes.add(recipe);
-        }
-
-        return recipes;
     }
 
     private void setRecipe() {
@@ -139,6 +104,38 @@ public class RecipeIngredientsWidgetConfigureActivity extends AppCompatActivity 
         resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId);
         setResult(RESULT_OK, resultValue);
         finish();
+    }
+
+    @NonNull
+    @Override
+    public Loader<ArrayList<Recipe>> onCreateLoader(int id, @Nullable Bundle args) {
+        switch (id) {
+            case LOADER_RECIPES:
+                return new RecipesLoader(this);
+
+            default:
+                throw new RuntimeException("Loader " + String.valueOf(id) + ", not recognised.");
+        }
+    }
+
+    @Override
+    public void onLoadFinished(@NonNull Loader<ArrayList<Recipe>> loader, ArrayList<Recipe> data) {
+        switch (loader.getId()) {
+            case LOADER_RECIPES:
+                ArrayAdapter<Recipe> recipesAdapter = new ArrayAdapter<>(this,
+                        R.layout.list_item_ingredient, data.toArray(new Recipe[data.size()]));
+                mBinding.recipesSpinner.setAdapter(recipesAdapter);
+
+                break;
+
+            default:
+                throw new RuntimeException("Loader not found");
+        }
+    }
+
+    @Override
+    public void onLoaderReset(@NonNull Loader<ArrayList<Recipe>> loader) {
+
     }
 }
 

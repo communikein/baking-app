@@ -5,37 +5,37 @@ import android.arch.persistence.room.Entity;
 import android.arch.persistence.room.ForeignKey;
 import android.arch.persistence.room.PrimaryKey;
 import android.content.ContentValues;
+import android.database.Cursor;
 import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.google.gson.annotations.SerializedName;
 
-import static android.arch.persistence.room.ForeignKey.CASCADE;
+import it.communikein.bakingapp.data.contentprovider.RecipeContract;
 
-@Entity(tableName = Step.TABLE_NAME,
+import static android.arch.persistence.room.ForeignKey.CASCADE;
+import static it.communikein.bakingapp.data.contentprovider.StepContract.StepEntry.COLUMN_DESCRIPTION;
+import static it.communikein.bakingapp.data.contentprovider.StepContract.StepEntry.COLUMN_ID;
+import static it.communikein.bakingapp.data.contentprovider.StepContract.StepEntry.COLUMN_RECIPE_ID;
+import static it.communikein.bakingapp.data.contentprovider.StepContract.StepEntry.COLUMN_SHORT_DESCRIPTION;
+import static it.communikein.bakingapp.data.contentprovider.StepContract.StepEntry.COLUMN_STEP_NUM;
+import static it.communikein.bakingapp.data.contentprovider.StepContract.StepEntry.COLUMN_THUMBNAIL_URL;
+import static it.communikein.bakingapp.data.contentprovider.StepContract.StepEntry.COLUMN_VIDEO_URL;
+import static it.communikein.bakingapp.data.contentprovider.StepContract.StepEntry.TABLE_NAME;
+
+@Entity(tableName = TABLE_NAME,
         foreignKeys = @ForeignKey(entity = Recipe.class,
                 parentColumns = "id",
-                childColumns = "recipe_id",
+                childColumns = COLUMN_RECIPE_ID,
                 onDelete = CASCADE))
 public class Step implements Parcelable {
 
-    public static final String TABLE_NAME = "steps";
-
-    public static final String ID = "id";
-    public static final String STEP_NUM = ID;
+    public static final String STEP_NUM = "id";
     public static final String RECIPE_ID = "recipe_id";
     public static final String SHORT_DESCRIPTION = "shortDescription";
     public static final String DESCRIPTION = "description";
     public static final String VIDEO_URL = "videoURL";
     public static final String THUMBNAIL_URL = "thumbnailURL";
-
-    public static final String COLUMN_ID = "_id";
-    public static final String COLUMN_STEP_NUM = "step_num";
-    public static final String COLUMN_RECIPE_ID = RECIPE_ID;
-    public static final String COLUMN_SHORT_DESCRIPTION = "short_description";
-    public static final String COLUMN_DESCRIPTION = DESCRIPTION;
-    public static final String COLUMN_VIDEO_URL = "video_url";
-    public static final String COLUMN_THUMBNAIL_URL = "thumbnail_url";
 
 
     @SerializedName(COLUMN_ID)

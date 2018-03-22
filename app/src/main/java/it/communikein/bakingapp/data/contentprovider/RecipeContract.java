@@ -15,8 +15,18 @@ public class RecipeContract {
         public static final String COLUMN_SERVINGS = "servings";
         public static final String COLUMN_IMAGE = "image";
 
-        public static final Uri CONTENT_URI = BASE_CONTENT_URI.buildUpon()
+        private static final Uri CONTENT_URI = BASE_CONTENT_URI.buildUpon()
                 .appendPath(TABLE_NAME).build();
+
+        public static Uri getRecipesUri() {
+            return CONTENT_URI;
+        }
+
+        public static Uri getRecipe(int id) {
+            return CONTENT_URI.buildUpon()
+                    .appendQueryParameter(COLUMN_ID, String.valueOf(id))
+                    .build();
+        }
     }
 
 }
