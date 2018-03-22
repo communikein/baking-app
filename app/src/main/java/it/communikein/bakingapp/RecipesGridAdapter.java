@@ -1,40 +1,65 @@
 package it.communikein.bakingapp;
 
+import android.content.Context;
 import android.databinding.DataBindingUtil;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.util.DiffUtil;
 import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import it.communikein.bakingapp.databinding.GridItemRecipeBinding;
-import it.communikein.bakingapp.model.Recipe;
+import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.RecipesGridAdapter.RecipeViewHolder;
+import it.communikein.bakingapp.databinding.ListItemRecipeBinding;
 
 public class RecipesGridAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
 
+    private Context mContext;
+
     private List<Recipe> mList;
+    private boolean listLayout;
 
     @Nullable
-    private final RecipesListAdapter.RecipeClickCallback mOnClickListener;
+    private final RecipeClickCallback mOnClickListener;
+    public interface RecipeClickCallback {
+        void onRecipeClick(Recipe recipe);
+    }
 
-    public RecipesGridAdapter(@Nullable RecipesListAdapter.RecipeClickCallback listener) {
+    public RecipesGridAdapter(Context context, @Nullable RecipeClickCallback listener) {
+        this.mContext = context;
         this.mOnClickListener = listener;
+        this.listLayout = true;
     }
 
     @Override
-    public RecipeViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-        GridItemRecipeBinding mBinding = DataBindingUtil
-                .inflate(LayoutInflater.from(parent.getContext()),
-                        R.layout.grid_item_recipe,
-                        parent,
-                        false);
+    public RecipeViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        if (listLayout) {
+            ListItemRecipeBinding mBinding = DataBindingUtil
+                    .inflate(LayoutInflater.from(parent.getContext()),
+                            R.layout.list_item_recipe,
+                            parent,
+                            false);
 
-        return new RecipeViewHolder(mBinding);
+            return new RecipeViewHolder(mBinding);
+        }
+        else {
+            GridItemRecipeBinding mBinding = DataBindingUtil
+                    .inflate(LayoutInflater.from(parent.getContext()),
+                            R.layout.grid_item_recipe,
+                            parent,
+                            false);
+
+            return new RecipeViewHolder(mBinding);
+        }
     }
 
     @Override
@@ -49,6 +74,17 @@ public class RecipesGridAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
         return mList == null ? 0 : mList.size();
     }
 
+    public void toListLayout() {
+        this.listLayout = true;
+    }
+
+    public void toGridLayout() {
+        this.listLayout = false;
+    }
+
+    public boolean isListLayout() { return this.listLayout; }
+
+    public boolean isGridLayout() { return !this.listLayout; }
 
     public void setList(final List<Recipe> newList) {
         final List<Recipe> tempList = new ArrayList<>();
@@ -94,7 +130,8 @@ public class RecipesGridAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
 
     class RecipeViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
 
-        private final GridItemRecipeBinding mBinding;
+        private final GridItemRecipeBinding mGridBinding;
+        private final ListItemRecipeBinding mListBinding;
 
         RecipeViewHolder(GridItemRecipeBinding binding) {
             super(binding.getRoot());
@@ -103,21 +140,72 @@ public class RecipesGridAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
             binding.getRoot().setFocusable(true);
             binding.getRoot().setClickable(true);
 
-            this.mBinding = binding;
+            this.mGridBinding = binding;
+            this.mListBinding = null;
+        }
+
+        RecipeViewHolder(ListItemRecipeBinding binding) {
+            super(binding.getRoot());
+
+            binding.getRoot().setOnClickListener(this);
+            binding.getRoot().setFocusable(true);
+            binding.getRoot().setClickable(true);
+
+            this.mListBinding = binding;
+            this.mGridBinding = null;
         }
 
         @Override
         public void onClick(View v) {
-            Recipe clicked = mBinding.getRecipe();
+            Recipe clicked;
+            if (mGridBinding == null)
+                clicked = mListBinding.getRecipe();
+            else
+                clicked = mGridBinding.getRecipe();
 
             if (mOnClickListener != null)
                 mOnClickListener.onRecipeClick(clicked);
         }
 
         void bindData(Recipe recipe) {
-            mBinding.setRecipe(recipe);
+            if (mGridBinding == null) {
+                mListBinding.setRecipe(recipe);
 
-            mBinding.recipeNameTextview.setText(recipe.getName());
+                mListBinding.recipeNameTextview.setText(recipe.getName());
+                if (TextUtils.isEmpty(recipe.getImage()))
+                    mListBinding.recipeImageview.setVisibility(View.GONE);
+                else {
+                    mListBinding.recipeImageview.setVisibility(View.VISIBLE);
+                    Picasso.get()
+                            .load(recipe.getImage())
+                            .placeholder(R.drawable.ic_image)
+                            .error(R.drawable.ic_broken_image)
+                            .into(mListBinding.recipeImageview);
+                }
+            }
+            else {
+                mGridBinding.setRecipe(recipe);
+
+                mGridBinding.recipeNameTextview.setText(recipe.getName());
+                if (TextUtils.isEmpty(recipe.getImage())) {
+                    int color = mContext.getResources().getColor(R.color.primary_text);
+                    mGridBinding.recipeNameTextview.setTextColor(color);
+
+                    mGridBinding.recipeImageview.setVisibility(View.GONE);
+                    mGridBinding.recipeNameBackground.setVisibility(View.GONE);
+                }
+                else {
+                    int color = mContext.getResources().getColor(R.color.white);
+                    mGridBinding.recipeNameTextview.setTextColor(color);
+                    mGridBinding.recipeImageview.setVisibility(View.VISIBLE);
+                    mGridBinding.recipeNameBackground.setVisibility(View.VISIBLE);
+                    Picasso.get()
+                            .load(recipe.getImage())
+                            .placeholder(R.drawable.ic_image)
+                            .error(R.drawable.ic_broken_image)
+                            .into(mGridBinding.recipeImageview);
+                }
+            }
         }
     }
 

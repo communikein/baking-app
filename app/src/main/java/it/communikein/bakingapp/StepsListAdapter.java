@@ -1,6 +1,7 @@
 package it.communikein.bakingapp;
 
 import android.databinding.DataBindingUtil;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.util.DiffUtil;
 import android.support.v7.widget.RecyclerView;
@@ -11,40 +12,40 @@ import android.view.ViewGroup;
 import java.util.ArrayList;
 import java.util.List;
 
-import it.communikein.bakingapp.model.Recipe;
-import it.communikein.bakingapp.RecipesListAdapter.RecipeViewHolder;
-import it.communikein.bakingapp.databinding.ListItemRecipeBinding;
+import it.communikein.bakingapp.StepsListAdapter.StepViewHolder;
+import it.communikein.bakingapp.data.model.Step;
+import it.communikein.bakingapp.databinding.ListItemStepBinding;
 
-public class RecipesListAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
+public class StepsListAdapter extends RecyclerView.Adapter<StepViewHolder> {
 
-    private List<Recipe> mList;
+    private List<Step> mList;
 
     @Nullable
-    private final RecipeClickCallback mOnClickListener;
-    public interface RecipeClickCallback {
-        void onRecipeClick(Recipe recipe);
+    private final StepClickCallback mOnClickListener;
+    public interface StepClickCallback {
+        void onStepClick(Step step);
     }
 
-    public RecipesListAdapter(@Nullable RecipeClickCallback listener) {
+    public StepsListAdapter(@Nullable StepClickCallback listener) {
         this.mOnClickListener = listener;
     }
 
     @Override
-    public RecipeViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-        ListItemRecipeBinding mBinding = DataBindingUtil
+    public StepViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        ListItemStepBinding mBinding = DataBindingUtil
                 .inflate(LayoutInflater.from(parent.getContext()),
-                        R.layout.list_item_recipe,
+                        R.layout.list_item_step,
                         parent,
                         false);
 
-        return new RecipeViewHolder(mBinding);
+        return new StepViewHolder(mBinding);
     }
 
     @Override
-    public void onBindViewHolder(RecipeViewHolder holder, int position) {
-        Recipe recipe = mList.get(position);
+    public void onBindViewHolder(@NonNull StepViewHolder holder, int position) {
+        Step step = mList.get(position);
 
-        holder.bindData(recipe);
+        holder.bindData(step);
     }
 
     @Override
@@ -53,8 +54,8 @@ public class RecipesListAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
     }
 
 
-    public void setList(final List<Recipe> newList) {
-        final List<Recipe> tempList = new ArrayList<>();
+    public void setList(final List<Step> newList) {
+        final List<Step> tempList = new ArrayList<>();
         if (newList != null)
             tempList.addAll(newList);
 
@@ -85,8 +86,8 @@ public class RecipesListAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
 
                 @Override
                 public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
-                    Recipe newItem = tempList.get(newItemPosition);
-                    Recipe oldItem = mList.get(oldItemPosition);
+                    Step newItem = tempList.get(newItemPosition);
+                    Step oldItem = mList.get(oldItemPosition);
                     return oldItem.displayEquals(newItem);
                 }
             });
@@ -95,11 +96,11 @@ public class RecipesListAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
         }
     }
 
-    class RecipeViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
+    class StepViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
 
-        private final ListItemRecipeBinding mBinding;
+        private final ListItemStepBinding mBinding;
 
-        RecipeViewHolder(ListItemRecipeBinding binding) {
+        StepViewHolder(ListItemStepBinding binding) {
             super(binding.getRoot());
 
             binding.getRoot().setOnClickListener(this);
@@ -111,16 +112,17 @@ public class RecipesListAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
 
         @Override
         public void onClick(View v) {
-            Recipe clicked = mBinding.getRecipe();
+            Step clicked = mBinding.getStep();
 
             if (mOnClickListener != null)
-                mOnClickListener.onRecipeClick(clicked);
+                mOnClickListener.onStepClick(clicked);
         }
 
-        void bindData(Recipe recipe) {
-            mBinding.setRecipe(recipe);
+        void bindData(Step step) {
+            mBinding.setStep(step);
 
-            mBinding.recipeNameTextview.setText(recipe.getName());
+            mBinding.stepShortDescriptionTextview.setText(step.getShortDescription());
+            mBinding.stepFullDescriptionTextview.setText(step.getDescription());
         }
     }
 

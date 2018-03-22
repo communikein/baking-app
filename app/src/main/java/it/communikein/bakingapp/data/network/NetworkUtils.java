@@ -1,4 +1,4 @@
-package it.communikein.bakingapp.network;
+package it.communikein.bakingapp.data.network;
 
 import android.content.Context;
 import android.net.ConnectivityManager;

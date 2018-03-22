@@ -1,17 +1,16 @@
 package it.communikein.bakingapp.ui;
 
+import android.content.Intent;
 import android.databinding.DataBindingUtil;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
-import android.support.v4.app.Fragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.Loader;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.DisplayMetrics;
 import android.view.animation.AnimationUtils;
@@ -23,19 +22,17 @@ import java.util.List;
 import javax.inject.Inject;
 
 import dagger.android.AndroidInjection;
-import dagger.android.DispatchingAndroidInjector;
-import dagger.android.support.HasSupportFragmentInjector;
 import it.communikein.bakingapp.R;
 import it.communikein.bakingapp.RecipesGridAdapter;
-import it.communikein.bakingapp.RecipesListAdapter;
+import it.communikein.bakingapp.data.database.RecipesDao;
 import it.communikein.bakingapp.databinding.ActivityMainBinding;
-import it.communikein.bakingapp.model.Recipe;
-import it.communikein.bakingapp.network.NetworkUtils;
-import it.communikein.bakingapp.network.RecipesLoader;
+import it.communikein.bakingapp.data.model.Recipe;
+import it.communikein.bakingapp.data.network.NetworkUtils;
+import it.communikein.bakingapp.data.network.RecipesLoader;
 
 public class MainActivity extends AppCompatActivity implements
-        HasSupportFragmentInjector, RecipesListAdapter.RecipeClickCallback,
-        LoaderManager.LoaderCallbacks, SwipeRefreshLayout.OnRefreshListener {
+        RecipesGridAdapter.RecipeClickCallback, LoaderManager.LoaderCallbacks,
+        SwipeRefreshLayout.OnRefreshListener {
 
     private static final String LOG_TAG = MainActivity.class.getSimpleName();
 
@@ -48,15 +45,12 @@ public class MainActivity extends AppCompatActivity implements
     private ActivityMainBinding mBinding;
 
     private List<Recipe> mData;
-    private boolean showList;
-    private RecyclerView.Adapter recipesAdapter;
-    private RecyclerView.LayoutManager layoutManager;
 
     private int lastItemPosition = -1;
     private int firstVisibleItemPosition = -1;
 
     @Inject
-    DispatchingAndroidInjector<Fragment> dispatchingAndroidInjector;
+    RecipesDao recipesDao;
 
 
     @Override
@@ -84,7 +78,7 @@ public class MainActivity extends AppCompatActivity implements
         if (!savedInstanceState.containsKey(KEY_DATASET)) return;
 
         mData = savedInstanceState.getParcelable(KEY_DATASET);
-        RecipesListAdapter adapter = (RecipesListAdapter) mBinding.listRecyclerview.getAdapter();
+        RecipesGridAdapter adapter = (RecipesGridAdapter) mBinding.listRecyclerview.getAdapter();
         adapter.setList(mData);
         adapter.notifyDataSetChanged();
 
@@ -95,8 +89,6 @@ public class MainActivity extends AppCompatActivity implements
                 firstVisibleItemPosition = 0;
             mBinding.listRecyclerview.smoothScrollToPosition(firstVisibleItemPosition);
         }
-
-        showList = savedInstanceState.getBoolean(KEY_SHOW_LIST, true);
     }
 
     @Override
@@ -106,7 +98,6 @@ public class MainActivity extends AppCompatActivity implements
         if (mData != null)
             outState.putParcelableArrayList(KEY_DATASET, new ArrayList<>(mData));
         outState.putInt(KEY_FIRST_VISIBLE_ITEM_POS, firstVisibleItemPosition);
-        outState.putBoolean(KEY_SHOW_LIST, showList);
     }
 
     private void showProgressBar() {
@@ -119,44 +110,37 @@ public class MainActivity extends AppCompatActivity implements
 
 
     private void initUI() {
-        int fabResource = R.drawable.ic_view_module_black;
-        if (showList) fabResource = R.drawable.ic_view_list_black;
+        initRecipesList();
+        RecipesGridAdapter adapter = (RecipesGridAdapter) mBinding.listRecyclerview.getAdapter();
+
+        int fabResource = R.drawable.ic_view_module;
+        if (adapter.isListLayout()) fabResource = R.drawable.ic_view_list;
         mBinding.changeLayoutFab.setImageResource(fabResource);
         mBinding.changeLayoutFab.setOnClickListener(v -> {
-            showList = !showList;
-            updateListLayout();
+            updateListLayout(!adapter.isListLayout());
         });
-
-        initRecipesList();
     }
 
-    private void updateListLayout() {
-        LayoutAnimationController animation;
-        if (showList) {
-            mBinding.changeLayoutFab.setImageResource(R.drawable.ic_view_module_black);
+    private void updateListLayout(boolean listLayout) {
+        RecipesGridAdapter adapter = (RecipesGridAdapter)
+                mBinding.listRecyclerview.getAdapter();
+        GridLayoutManager layoutManager = (GridLayoutManager)
+                mBinding.listRecyclerview.getLayoutManager();
+        int cols = 1;
 
-            layoutManager = new LinearLayoutManager(this,
-                    LinearLayoutManager.VERTICAL, false);
-            recipesAdapter = new RecipesListAdapter(this);
-            ((RecipesListAdapter) recipesAdapter).setList(mData);
-
-            animation = AnimationUtils.loadLayoutAnimation(this, R.anim.layout_animation_from_bottom);
+        if (listLayout) {
+            mBinding.changeLayoutFab.setImageResource(R.drawable.ic_view_module);
+            adapter.toListLayout();
         }
         else {
-            mBinding.changeLayoutFab.setImageResource(R.drawable.ic_view_list_black);
-
-            layoutManager = new GridLayoutManager(this,
-                    numberOfColumns(), GridLayoutManager.VERTICAL, false);
-            recipesAdapter = new RecipesGridAdapter(this);
-            ((RecipesGridAdapter) recipesAdapter).setList(mData);
-
-            animation = AnimationUtils.loadLayoutAnimation(this, R.anim.layout_animation_from_bottom);
+            mBinding.changeLayoutFab.setImageResource(R.drawable.ic_view_list);
+            cols = numberOfColumns();
+            adapter.toGridLayout();
         }
 
-        mBinding.listRecyclerview.setLayoutManager(layoutManager);
-        mBinding.listRecyclerview.setAdapter(recipesAdapter);
-        mBinding.listRecyclerview.setLayoutAnimation(animation);
-        mBinding.listRecyclerview.scheduleLayoutAnimation();
+        layoutManager.setSpanCount(cols);
+        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
+        adapter.setList(mData);
     }
 
     private int numberOfColumns() {
@@ -172,27 +156,29 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     private void initRecipesList() {
-        if (layoutManager == null)
-            updateListLayout();
+        final GridLayoutManager layoutManager = new GridLayoutManager(this, 1,
+                GridLayoutManager.VERTICAL, false);
+        mBinding.listRecyclerview.setLayoutManager(layoutManager);
+
+        final LayoutAnimationController animation = AnimationUtils.loadLayoutAnimation(this,
+                R.anim.layout_animation_from_bottom);
+        mBinding.listRecyclerview.setLayoutAnimation(animation);
+
+        final RecipesGridAdapter recipesAdapter = new RecipesGridAdapter(this, this);
+        mBinding.listRecyclerview.setAdapter(recipesAdapter);
         mBinding.listRecyclerview.setHasFixedSize(true);
+
+        recipesAdapter.setList(mData);
+        recipesAdapter.notifyDataSetChanged();
+        mBinding.listRecyclerview.scheduleLayoutAnimation();
 
         mBinding.listRecyclerview.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
 
-                if (showList) {
-                    LinearLayoutManager linearLayoutManager = (LinearLayoutManager) layoutManager;
-
-                    lastItemPosition = linearLayoutManager.findLastVisibleItemPosition();
-                    firstVisibleItemPosition = linearLayoutManager.findFirstVisibleItemPosition();
-                }
-                else {
-                    GridLayoutManager gridLayoutManager = (GridLayoutManager) layoutManager;
-
-                    lastItemPosition = gridLayoutManager.findLastVisibleItemPosition();
-                    firstVisibleItemPosition = gridLayoutManager.findFirstVisibleItemPosition();
-                }
+                lastItemPosition = layoutManager.findLastVisibleItemPosition();
+                firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition();
             }
         });
     }
@@ -224,13 +210,11 @@ public class MainActivity extends AppCompatActivity implements
     private void initData(Bundle savedInstanceState) {
         if (savedInstanceState == null || !savedInstanceState.containsKey(KEY_DATASET))
             onRefresh();
-        if (savedInstanceState == null || !savedInstanceState.containsKey(KEY_SHOW_LIST))
-            showList = true;
     }
 
     private void handleRecipes() {
         if (mData != null) {
-            RecipesListAdapter adapter = (RecipesListAdapter) mBinding.listRecyclerview.getAdapter();
+            RecipesGridAdapter adapter = (RecipesGridAdapter) mBinding.listRecyclerview.getAdapter();
             adapter.setList(mData);
             adapter.notifyDataSetChanged();
         }
@@ -242,7 +226,7 @@ public class MainActivity extends AppCompatActivity implements
         switch (id) {
             case LOADER_RECIPES_ID:
                 showProgressBar();
-                return RecipesLoader.createRecipeLoader(this);
+                return RecipesLoader.createRecipeLoader(this, recipesDao);
 
             default:
                 throw new RuntimeException("Loader Not Implemented: " + id);
@@ -274,19 +258,8 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onRecipeClick(Recipe recipe) {
-        // TODO: Implement the RecipeDetailsActivity class
-        /*
-        Intent intent = new Intent(this, RecipeDetailsActivity.class);
-        intent.putExtra(RecipeDetailsActivity.KEY_RECIPE, recipe);
+        Intent intent = new Intent(this, RecipeDetailActivity.class);
+        intent.putExtra(RecipeDetailActivity.KEY_RECIPE, recipe);
         startActivity(intent);
-        */
-    }
-
-
-
-
-    @Override
-    public DispatchingAndroidInjector<Fragment> supportFragmentInjector() {
-        return dispatchingAndroidInjector;
     }
 }

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <data>
+        <variable name="step"
+            type="it.communikein.bakingapp.data.model.Step"/>
+    </data>
+
+    <android.support.constraint.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/step_short_description_textview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:text="Key Lime Pie"
+            android:textSize="17sp"
+            android:textColor="@color/primary_text"/>
+
+        <TextView
+            android:id="@+id/step_full_description_textview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/step_short_description_textview"
+            app:layout_constraintStart_toStartOf="@id/step_short_description_textview"
+            android:gravity="center_vertical"
+            tools:text="Key Lime Pie"
+            android:textSize="16sp"
+            android:textColor="@color/secondary_text"/>
+
+    </android.support.constraint.ConstraintLayout>
+
+</layout>

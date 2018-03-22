@@ -3,4 +3,24 @@
     <string name="error_no_internet">No internet connection, retry.</string>
     <string name="retry">Retry</string>
     <string name="recipe_image">Recipe image</string>
+
+    <string name="placeholder_title">Key Lime Pie Key Lime Pie Key Lime Pie Key Lime Pie</string>
+
+    <string name="servings_label">Servings:</string>
+    <string name="placeholder_servings">8</string>
+
+    <string name="ingredients_label">Ingredients</string>
+    <string name="placeholder_ingredients">Chocolate, Vanilla, Flour, Peach, Chocolate, Vanilla, Flour, Peach, Chocolate, Vanilla, Flour, Peach</string>
+
+    <string name="steps_label">Steps</string>
+    <string name="label_recipe_added_to_favourites">Recipe added to favourites</string>
+    <string name="label_recipe_removed_from_favourites">Recipe removed from favourites</string>
+    <string name="player_previous_label">Previous</string>
+    <string name="player_play_label">Play</string>
+    <string name="player_pause_label">Pause</string>
+    <string name="step_detail_label">Step details</string>
+    <string name="label_video_not_available">There is no video available for this step.</string>
+    <string name="appwidget_text">EXAMPLE</string>
+    <string name="configure">Configure</string>
+    <string name="add_widget">Add widget</string>
 </resources>

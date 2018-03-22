@@ -5,28 +5,12 @@
 
     <data>
         <variable name="recipe"
-            type="it.communikein.bakingapp.model.Recipe"/>
+            type="it.communikein.bakingapp.data.model.Recipe"/>
     </data>
 
     <android.support.constraint.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="104dp">
-
-        <ImageView
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/horizontal_middle"
-            tools:src="@tools:sample/backgrounds/scenic"
-            android:scaleType="centerCrop"
-            android:contentDescription="@string/recipe_image"/>
-
-        <android.support.constraint.Guideline
-            android:id="@+id/horizontal_middle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.6"/>
+        android:layout_height="112dp">
 
         <TextView
             android:id="@+id/recipe_name_textview"
@@ -34,13 +18,33 @@
             android:layout_height="0dp"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toEndOf="@id/horizontal_middle"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:padding="8dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="@id/horizontal_middle"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:gravity="center_vertical"
             tools:text="Key Lime Pie"
             android:textSize="18sp"
             android:textColor="@color/primary_text"/>
+
+        <android.support.constraint.Guideline
+            android:id="@+id/horizontal_middle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.4"/>
+
+        <ImageView
+            android:id="@+id/recipe_imageview"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            app:layout_constraintStart_toEndOf="@id/horizontal_middle"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:src="@tools:sample/backgrounds/scenic"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/recipe_image"/>
 
     </android.support.constraint.ConstraintLayout>
 

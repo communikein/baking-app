@@ -44,6 +44,8 @@
                     android:layout_height="match_parent"
                     android:clipToPadding="false"
                     android:orientation="vertical"
+                    app:layoutManager="android.support.v7.widget.GridLayoutManager"
+                    app:spanCount="1"
                     tools:listitem="@layout/list_item_recipe" />
 
             </android.support.v4.widget.SwipeRefreshLayout>
@@ -52,7 +54,7 @@
                 android:id="@+id/change_layout_fab"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:srcCompat="@drawable/ic_view_list_black"
+                app:srcCompat="@drawable/ic_view_list"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 android:layout_marginBottom="16dp"
