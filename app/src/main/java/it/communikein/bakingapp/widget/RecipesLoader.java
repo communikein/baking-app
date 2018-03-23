@@ -10,6 +10,7 @@ import java.util.ArrayList;
 
 import it.communikein.bakingapp.data.contentprovider.IngredientContract;
 import it.communikein.bakingapp.data.contentprovider.RecipeContract;
+import it.communikein.bakingapp.data.contentprovider.StepContract;
 import it.communikein.bakingapp.data.model.Ingredient;
 import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.data.model.Step;
@@ -54,7 +55,7 @@ public class RecipesLoader extends AsyncTaskLoader<ArrayList<Recipe>> {
             if (ingredientsCursor != null) ingredientsCursor.close();
 
             Cursor stepsCursor = mContentResolver.query(
-                    IngredientContract.IngredientEntry.getRecipeIngredientsUri(recipe.getId()),
+                    StepContract.StepEntry.getRecipeStepsUri(recipe.getId()),
                     null,
                     null,
                     null,

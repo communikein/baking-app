@@ -61,6 +61,13 @@
         <service
             android:name=".widget.ListWidgetService"
             android:permission="android.permission.BIND_REMOTEVIEWS"/>
+        <service
+            android:name=".widget.WidgetUpdateService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="it.communikein.bakingapp.widgetupdateservice.update_app_widget_list"/>
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>
