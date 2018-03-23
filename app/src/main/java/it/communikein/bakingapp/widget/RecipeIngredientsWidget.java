@@ -10,6 +10,7 @@ import android.widget.RemoteViews;
 import java.util.ArrayList;
 
 import it.communikein.bakingapp.R;
+import it.communikein.bakingapp.data.model.Ingredient;
 import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.ui.RecipeDetailActivity;
 
@@ -37,21 +38,12 @@ public class RecipeIngredientsWidget extends AppWidgetProvider {
             views.setTextViewText(R.id.widget_name, recipe.getName());
 
             Intent listIntent = new Intent(context, ListWidgetService.class);
-            listIntent.putParcelableArrayListExtra(RecipeDetailActivity.KEY_RECIPE,
-                    new ArrayList<>(recipe.getIngredients()));
-            views.setRemoteAdapter(R.id.widget_listview, listIntent);
+            listIntent.putExtra(ListWidgetService.KEY_INGREDIENTS, appWidgetId);
+            views.setRemoteAdapter(R.id.widget_list, listIntent);
         }
 
         // Instruct the widget manager to update the widget
         appWidgetManager.updateAppWidget(appWidgetId, views);
-    }
-
-    @Override
-    public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
-        // There may be multiple widgets active, so update all of them
-        for (int appWidgetId : appWidgetIds) {
-            updateAppWidget(context, appWidgetManager, appWidgetId);
-        }
     }
 
     @Override
@@ -60,16 +52,6 @@ public class RecipeIngredientsWidget extends AppWidgetProvider {
         for (int appWidgetId : appWidgetIds) {
             RecipeIngredientsWidgetConfigureActivity.deleteRecipePref(context, appWidgetId);
         }
-    }
-
-    @Override
-    public void onEnabled(Context context) {
-        // Enter relevant functionality for when the first widget is created
-    }
-
-    @Override
-    public void onDisabled(Context context) {
-        // Enter relevant functionality for when the last widget is disabled
     }
 }
 

@@ -2,13 +2,16 @@ package it.communikein.bakingapp.widget;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.IBinder;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import it.communikein.bakingapp.R;
 import it.communikein.bakingapp.data.model.Ingredient;
+import it.communikein.bakingapp.data.model.Recipe;
 
 public class ListWidgetService extends RemoteViewsService {
 
@@ -16,8 +19,14 @@ public class ListWidgetService extends RemoteViewsService {
 
     @Override
     public RemoteViewsFactory onGetViewFactory(Intent intent) {
-        List<Ingredient> ingredients = intent.getParcelableArrayListExtra(KEY_INGREDIENTS);
-        return new ListRemoteViewsFactory(this.getApplicationContext(), ingredients);
+        int appWidgetId = intent.getIntExtra(KEY_INGREDIENTS, -1);
+
+        Recipe recipe = RecipeIngredientsWidgetConfigureActivity
+                .loadRecipePref(this.getApplicationContext(), appWidgetId);
+
+        return new ListRemoteViewsFactory(
+                this.getApplicationContext(),
+                new ArrayList<>(recipe.getIngredients()));
     }
 
 
@@ -26,7 +35,7 @@ public class ListWidgetService extends RemoteViewsService {
         String mPackageName;
         List<Ingredient> mIngredients;
 
-        ListRemoteViewsFactory(Context applicationContext, List<Ingredient> ingredients) {
+        ListRemoteViewsFactory(Context applicationContext, ArrayList<Ingredient> ingredients) {
             this.mPackageName = applicationContext.getPackageName();
             this.mIngredients = ingredients;
         }

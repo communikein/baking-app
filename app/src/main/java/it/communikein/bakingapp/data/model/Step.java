@@ -11,6 +11,7 @@ import android.os.Parcelable;
 
 import com.google.gson.annotations.SerializedName;
 
+import it.communikein.bakingapp.data.contentprovider.IngredientContract;
 import it.communikein.bakingapp.data.contentprovider.RecipeContract;
 
 import static android.arch.persistence.room.ForeignKey.CASCADE;
@@ -102,6 +103,27 @@ public class Step implements Parcelable {
             step.setThumbnailURL(origin.getAsString(COLUMN_THUMBNAIL_URL));
 
         return step;
+    }
+
+    public static Step fromCursor(Cursor cursor) {
+        int idIndex = cursor.getColumnIndex(COLUMN_ID);
+        int stepNumIndex = cursor.getColumnIndex(COLUMN_STEP_NUM);
+        int recipeIdIndex = cursor.getColumnIndex(COLUMN_RECIPE_ID);
+        int shortDescriptionIndex = cursor.getColumnIndex(COLUMN_SHORT_DESCRIPTION);
+        int descriptionIndex = cursor.getColumnIndex(COLUMN_DESCRIPTION);
+        int videoUrlIndex = cursor.getColumnIndex(COLUMN_VIDEO_URL);
+        int thumbnailUrlIndex = cursor.getColumnIndex(COLUMN_THUMBNAIL_URL);
+
+        int stepId = cursor.getInt(idIndex);
+        int stepNum = cursor.getInt(stepNumIndex);
+        int stepRecipeId = cursor.getInt(recipeIdIndex);
+        String stepShortDescription = cursor.getString(shortDescriptionIndex);
+        String stepDescription = cursor.getString(descriptionIndex);
+        String stepVideoUrl = cursor.getString(videoUrlIndex);
+        String stepThumbnailUrl = cursor.getString(thumbnailUrlIndex);
+
+        return new Step(stepId, stepNum, stepRecipeId, stepShortDescription, stepDescription,
+                stepVideoUrl, stepThumbnailUrl);
     }
 
 
