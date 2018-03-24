@@ -21,12 +21,20 @@ import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.RecipesGridAdapter.RecipeViewHolder;
 import it.communikein.bakingapp.databinding.ListItemRecipeBinding;
 
+/*
+    Icons made by Vectors Market (https://www.flaticon.com/authors/vectors-market)
+    from https://www.flaticon.com/
+    is licensed by CC 3.0 BY (http://creativecommons.org/licenses/by/3.0/)
+*/
 public class RecipesGridAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
+
+    private static final int GRID_ITEM = -1;
+    private static final int LIST_ITEM = -2;
 
     private Context mContext;
 
     private List<Recipe> mList;
-    private boolean listLayout;
+    private int mLayoutType;
 
     @Nullable
     private final RecipeClickCallback mOnClickListener;
@@ -34,24 +42,15 @@ public class RecipesGridAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
         void onRecipeClick(Recipe recipe);
     }
 
-    public RecipesGridAdapter(Context context, @Nullable RecipeClickCallback listener) {
+    public RecipesGridAdapter(boolean gridLayout, Context context, @Nullable RecipeClickCallback listener) {
         this.mContext = context;
         this.mOnClickListener = listener;
-        this.listLayout = true;
+        this.mLayoutType = gridLayout ? GRID_ITEM : LIST_ITEM;
     }
 
-    @Override
+    @Override @NonNull
     public RecipeViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        if (listLayout) {
-            ListItemRecipeBinding mBinding = DataBindingUtil
-                    .inflate(LayoutInflater.from(parent.getContext()),
-                            R.layout.list_item_recipe,
-                            parent,
-                            false);
-
-            return new RecipeViewHolder(mBinding);
-        }
-        else {
+        if (viewType == GRID_ITEM) {
             GridItemRecipeBinding mBinding = DataBindingUtil
                     .inflate(LayoutInflater.from(parent.getContext()),
                             R.layout.grid_item_recipe,
@@ -60,13 +59,27 @@ public class RecipesGridAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
 
             return new RecipeViewHolder(mBinding);
         }
+        else {
+            ListItemRecipeBinding mBinding = DataBindingUtil
+                    .inflate(LayoutInflater.from(parent.getContext()),
+                            R.layout.list_item_recipe,
+                            parent,
+                            false);
+
+            return new RecipeViewHolder(mBinding);
+        }
     }
 
     @Override
-    public void onBindViewHolder(RecipeViewHolder holder, int position) {
+    public void onBindViewHolder(@NonNull RecipeViewHolder holder, int position) {
         Recipe recipe = mList.get(position);
 
         holder.bindData(recipe);
+    }
+
+    @Override
+    public int getItemViewType(int position) {
+        return mLayoutType;
     }
 
     @Override
@@ -74,17 +87,13 @@ public class RecipesGridAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
         return mList == null ? 0 : mList.size();
     }
 
-    public void toListLayout() {
-        this.listLayout = true;
+    public void setLayout(boolean gridLayout) {
+        this.mLayoutType = gridLayout ? GRID_ITEM : LIST_ITEM;
     }
 
-    public void toGridLayout() {
-        this.listLayout = false;
-    }
+    public boolean isListLayout() { return this.mLayoutType == LIST_ITEM; }
 
-    public boolean isListLayout() { return this.listLayout; }
-
-    public boolean isGridLayout() { return !this.listLayout; }
+    public boolean isGridLayout() { return this.mLayoutType == GRID_ITEM; }
 
     public void setList(final List<Recipe> newList) {
         final List<Recipe> tempList = new ArrayList<>();
@@ -173,15 +182,13 @@ public class RecipesGridAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
 
                 mListBinding.recipeNameTextview.setText(recipe.getName());
                 if (TextUtils.isEmpty(recipe.getImage()))
-                    mListBinding.recipeImageview.setVisibility(View.GONE);
-                else {
-                    mListBinding.recipeImageview.setVisibility(View.VISIBLE);
+                    mListBinding.recipeImageview.setImageResource(R.drawable.piece_of_cake);
+                else
                     Picasso.get()
                             .load(recipe.getImage())
                             .placeholder(R.drawable.ic_image)
                             .error(R.drawable.ic_broken_image)
                             .into(mListBinding.recipeImageview);
-                }
             }
             else {
                 mGridBinding.setRecipe(recipe);
@@ -190,15 +197,15 @@ public class RecipesGridAdapter extends RecyclerView.Adapter<RecipeViewHolder> {
                 if (TextUtils.isEmpty(recipe.getImage())) {
                     int color = mContext.getResources().getColor(R.color.primary_text);
                     mGridBinding.recipeNameTextview.setTextColor(color);
-
-                    mGridBinding.recipeImageview.setVisibility(View.GONE);
                     mGridBinding.recipeNameBackground.setVisibility(View.GONE);
+
+                    mGridBinding.recipeImageview.setImageResource(R.drawable.piece_of_cake);
                 }
                 else {
                     int color = mContext.getResources().getColor(R.color.white);
                     mGridBinding.recipeNameTextview.setTextColor(color);
-                    mGridBinding.recipeImageview.setVisibility(View.VISIBLE);
                     mGridBinding.recipeNameBackground.setVisibility(View.VISIBLE);
+
                     Picasso.get()
                             .load(recipe.getImage())
                             .placeholder(R.drawable.ic_image)

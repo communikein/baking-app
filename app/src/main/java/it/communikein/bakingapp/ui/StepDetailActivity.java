@@ -1,8 +1,11 @@
 package it.communikein.bakingapp.ui;
 
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.databinding.DataBindingUtil;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.Build;
 import android.support.constraint.ConstraintSet;
 import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
@@ -11,6 +14,7 @@ import android.text.TextUtils;
 import android.view.MenuItem;
 import android.view.View;
 
+import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.DefaultLoadControl;
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.LoadControl;
@@ -23,11 +27,9 @@ import com.google.android.exoplayer2.trackselection.TrackSelector;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
 
-import java.util.ArrayList;
-
+import it.communikein.bakingapp.BakingApp;
 import it.communikein.bakingapp.R;
 import it.communikein.bakingapp.data.model.Recipe;
-import it.communikein.bakingapp.data.model.Step;
 import it.communikein.bakingapp.databinding.ActivityStepDetailBinding;
 
 public class StepDetailActivity extends AppCompatActivity {
@@ -35,8 +37,14 @@ public class StepDetailActivity extends AppCompatActivity {
     public static final String KEY_RECIPE = "recipe";
     public static final String KEY_STEP_SELECTED = "step_selected";
 
+    public static final String KEY_PLAYER_WINDOW = "player_window";
+    public static final String KEY_PLAYER_POSITION = "player_position";
+
     ActivityStepDetailBinding mBinding;
     SimpleExoPlayer mExoPlayer;
+    private int mResumeWindow;
+    private long mResumePosition;
+    private boolean mLandscape;
 
     private Recipe mRecipe;
     private int mSelectedStep;
@@ -46,14 +54,22 @@ public class StepDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         mBinding = DataBindingUtil.setContentView(this, R.layout.activity_step_detail);
 
-        parseData();
+        mLandscape = getResources().getConfiguration().orientation ==
+                Configuration.ORIENTATION_LANDSCAPE;
+        parseData(savedInstanceState);
         initUI();
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        releasePlayer();
+    protected void onPause() {
+        super.onPause();
+
+        if (mExoPlayer != null) {
+            mResumeWindow = mExoPlayer.getCurrentWindowIndex();
+            mResumePosition = Math.max(0, mExoPlayer.getCurrentPosition());
+
+            mExoPlayer.release();
+        }
     }
 
     @Override
@@ -62,16 +78,28 @@ public class StepDetailActivity extends AppCompatActivity {
 
         outState.putParcelable(KEY_RECIPE, mRecipe);
         outState.putInt(KEY_STEP_SELECTED, mSelectedStep);
+        outState.putInt(KEY_PLAYER_WINDOW, mResumeWindow);
+        outState.putLong(KEY_PLAYER_POSITION, mResumePosition);
     }
 
     @Override
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
 
-        if (savedInstanceState.containsKey(KEY_RECIPE))
-            mRecipe = savedInstanceState.getParcelable(KEY_RECIPE);
-        if (savedInstanceState.containsKey(KEY_STEP_SELECTED))
-            mSelectedStep = savedInstanceState.getInt(KEY_STEP_SELECTED);
+        parseDataFromBundle(savedInstanceState);
+    }
+
+    private void parseDataFromBundle(Bundle data) {
+        if (data == null) return;
+
+        if (data.containsKey(KEY_RECIPE))
+            mRecipe = data.getParcelable(KEY_RECIPE);
+        if (data.containsKey(KEY_STEP_SELECTED))
+            mSelectedStep = data.getInt(KEY_STEP_SELECTED);
+        if (data.containsKey(KEY_PLAYER_WINDOW))
+            mResumeWindow = data.getInt(KEY_PLAYER_WINDOW);
+        if (data.containsKey(KEY_PLAYER_POSITION))
+            mResumePosition = data.getLong(KEY_PLAYER_POSITION);
     }
 
     @Override
@@ -84,7 +112,7 @@ public class StepDetailActivity extends AppCompatActivity {
     }
 
 
-    private void parseData() {
+    private void parseData(Bundle savedInstanceState) {
         Intent startIntent = getIntent();
         if (startIntent == null) {
             finish();
@@ -93,25 +121,31 @@ public class StepDetailActivity extends AppCompatActivity {
 
         mRecipe = startIntent.getParcelableExtra(KEY_RECIPE);
         mSelectedStep = startIntent.getIntExtra(KEY_STEP_SELECTED, 0);
+
+        parseDataFromBundle(savedInstanceState);
     }
 
     private void initUI() {
         if (mRecipe == null || mSelectedStep == -1) return;
 
-        initToolbar();
-        initFab();
+        if (!mLandscape) {
+            initToolbar();
+            initStepsControlButtons();
+        }
         initPlayer();
 
         updateUI();
     }
 
     private void updateUI() {
-        mBinding.labelStepDetail.setText(mRecipe.getSteps()
-                .get(mSelectedStep).getShortDescription());
-        mBinding.stepDetailTextview.setText(mRecipe.getSteps()
-                .get(mSelectedStep).getDescription());
+        if (!mLandscape) {
+            mBinding.labelStepDetail.setText(mRecipe.getSteps()
+                    .get(mSelectedStep).getShortDescription());
+            mBinding.stepDetailTextview.setText(mRecipe.getSteps()
+                    .get(mSelectedStep).getDescription());
 
-        updateFab();
+            updateStepsControlButtons();
+        }
         updatePlayer();
     }
 
@@ -123,37 +157,39 @@ public class StepDetailActivity extends AppCompatActivity {
         getSupportActionBar().setTitle(mRecipe.getName());
     }
 
-    private void initFab() {
-        updateFab();
+    private void initStepsControlButtons() {
+        updateStepsControlButtons();
 
-        mBinding.nextStepFab.setOnClickListener(v -> {
+        mBinding.nextStepButton.setOnClickListener(v -> {
             mSelectedStep++;
+
+            mExoPlayer.stop();
+            mResumePosition = 0;
+            mResumeWindow = 0;
+
             updateUI();
         });
-        mBinding.previousStepFab.setOnClickListener(v -> {
+        mBinding.prevStepButton.setOnClickListener(v -> {
             mSelectedStep--;
+
+            mExoPlayer.stop();
+            mResumePosition = 0;
+            mResumeWindow = 0;
+
             updateUI();
         });
     }
 
-    private void updateFab() {
-        if (mSelectedStep == 0) {
-            mBinding.previousStepFab.setVisibility(View.GONE);
-            mBinding.previousStepFab.setEnabled(false);
-        }
-        else {
-            mBinding.previousStepFab.setVisibility(View.VISIBLE);
-            mBinding.previousStepFab.setEnabled(true);
-        }
+    private void updateStepsControlButtons() {
+        if (mSelectedStep == 0)
+            mBinding.prevStepButton.setVisibility(View.GONE);
+        else
+            mBinding.prevStepButton.setVisibility(View.VISIBLE);
 
-        if (mSelectedStep == mRecipe.getSteps().size() - 1) {
-            mBinding.nextStepFab.setVisibility(View.GONE);
-            mBinding.nextStepFab.setEnabled(false);
-        }
-        else {
-            mBinding.nextStepFab.setVisibility(View.VISIBLE);
-            mBinding.nextStepFab.setEnabled(true);
-        }
+        if (mSelectedStep == mRecipe.getSteps().size() - 1)
+            mBinding.nextStepButton.setVisibility(View.GONE);
+        else
+            mBinding.nextStepButton.setVisibility(View.VISIBLE);
     }
 
     private void initPlayer() {
@@ -165,22 +201,42 @@ public class StepDetailActivity extends AppCompatActivity {
 
             mBinding.playerView.requestFocus();
             mBinding.playerView.setPlayer(mExoPlayer);
+
+            int fullscreenFlags;
+            if (mLandscape) {
+                fullscreenFlags = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_FULLSCREEN;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
+                    fullscreenFlags |= View.SYSTEM_UI_FLAG_IMMERSIVE;
+            }
+            else
+                fullscreenFlags = View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
+
+            getWindow().getDecorView().setSystemUiVisibility(fullscreenFlags);
         }
     }
 
     private void updatePlayer() {
-        if (!TextUtils.isEmpty(mRecipe.getSteps().get(mSelectedStep).getVideoURL())) {
+        boolean hasVideo = !TextUtils.isEmpty(mRecipe.getSteps().get(mSelectedStep).getVideoURL());
+        if (hasVideo) {
             mBinding.labelVideoNotAvailable.setVisibility(View.GONE);
             mBinding.playerView.setVisibility(View.VISIBLE);
 
-            ConstraintSet constraintSet = new ConstraintSet();
-            constraintSet.clone(mBinding.constraintView);
-            constraintSet.connect(R.id.label_step_detail, ConstraintSet.TOP,
-                    R.id.playerView, ConstraintSet.BOTTOM);
-            constraintSet.applyTo(mBinding.constraintView);
+            if (!mLandscape) {
+                ConstraintSet constraintSet = new ConstraintSet();
+                constraintSet.clone(mBinding.constraintView);
+                constraintSet.connect(R.id.label_step_detail, ConstraintSet.TOP,
+                        R.id.playerView, ConstraintSet.BOTTOM);
+                constraintSet.applyTo(mBinding.constraintView);
+            }
+
+            boolean haveResumePosition = mResumeWindow != C.INDEX_UNSET;
+            if (haveResumePosition)
+                mBinding.playerView.getPlayer().seekTo(mResumeWindow, mResumePosition);
 
             // Prepare the MediaSource.
-            String userAgent = Util.getUserAgent(this, "ClassicalMusicQuiz");
+            String userAgent = Util.getUserAgent(this, BakingApp.class.getName());
             MediaSource mediaSource = new ExtractorMediaSource(
                     Uri.parse(mRecipe.getSteps().get(mSelectedStep).getVideoURL()),
                     new DefaultDataSourceFactory(this, userAgent),
@@ -194,19 +250,13 @@ public class StepDetailActivity extends AppCompatActivity {
             mBinding.labelVideoNotAvailable.setVisibility(View.VISIBLE);
             mBinding.playerView.setVisibility(View.GONE);
 
-            ConstraintSet constraintSet = new ConstraintSet();
-            constraintSet.clone(mBinding.constraintView);
-            constraintSet.connect(R.id.label_step_detail, ConstraintSet.TOP,
-                    R.id.label_video_not_available, ConstraintSet.BOTTOM);
-            constraintSet.applyTo(mBinding.constraintView);
-        }
-    }
-
-    private void releasePlayer() {
-        if (mExoPlayer != null) {
-            mExoPlayer.stop();
-            mExoPlayer.release();
-            mExoPlayer = null;
+            if (!mLandscape) {
+                ConstraintSet constraintSet = new ConstraintSet();
+                constraintSet.clone(mBinding.constraintView);
+                constraintSet.connect(R.id.label_step_detail, ConstraintSet.TOP,
+                        R.id.label_video_not_available, ConstraintSet.BOTTOM);
+                constraintSet.applyTo(mBinding.constraintView);
+            }
         }
     }
 }

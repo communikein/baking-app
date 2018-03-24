@@ -30,7 +30,7 @@ public class StepsListAdapter extends RecyclerView.Adapter<StepViewHolder> {
         this.mOnClickListener = listener;
     }
 
-    @Override
+    @Override @NonNull
     public StepViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         ListItemStepBinding mBinding = DataBindingUtil
                 .inflate(LayoutInflater.from(parent.getContext()),
@@ -121,6 +121,20 @@ public class StepsListAdapter extends RecyclerView.Adapter<StepViewHolder> {
         void bindData(Step step) {
             mBinding.setStep(step);
 
+            if (step.getStepNum() == 0) {
+                mBinding.upperLine.setVisibility(View.GONE);
+                mBinding.lowerLine.setVisibility(View.VISIBLE);
+            }
+            else if(step.getStepNum() == getItemCount() - 1) {
+                mBinding.upperLine.setVisibility(View.VISIBLE);
+                mBinding.lowerLine.setVisibility(View.GONE);
+            }
+            else {
+                mBinding.upperLine.setVisibility(View.VISIBLE);
+                mBinding.lowerLine.setVisibility(View.VISIBLE);
+            }
+
+            mBinding.stepNumberTextview.setText(String.valueOf(step.getStepNum() + 1));
             mBinding.stepShortDescriptionTextview.setText(step.getShortDescription());
             mBinding.stepFullDescriptionTextview.setText(step.getDescription());
         }

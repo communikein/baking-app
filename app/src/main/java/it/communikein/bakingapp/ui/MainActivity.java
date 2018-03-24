@@ -1,6 +1,7 @@
 package it.communikein.bakingapp.ui;
 
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.databinding.DataBindingUtil;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -13,8 +14,7 @@ import android.os.Bundle;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.DisplayMetrics;
-import android.view.animation.AnimationUtils;
-import android.view.animation.LayoutAnimationController;
+import android.view.View;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +38,7 @@ public class MainActivity extends AppCompatActivity implements
 
     private static final String KEY_DATASET = "dataset";
     private static final String KEY_FIRST_VISIBLE_ITEM_POS = "first_visible_item_pos";
-    private static final String KEY_SHOW_LIST = "show_list";
+    private static final String KEY_SHOW_GRID = "show_grid";
 
     private static final int LOADER_RECIPES_ID = 1001;
 
@@ -46,8 +46,9 @@ public class MainActivity extends AppCompatActivity implements
 
     private List<Recipe> mData;
 
-    private int lastItemPosition = -1;
     private int firstVisibleItemPosition = -1;
+    private boolean mLandscape;
+    private boolean mGridLayout;
 
     @Inject
     RecipesDao recipesDao;
@@ -65,6 +66,9 @@ public class MainActivity extends AppCompatActivity implements
         mBinding.swipeRefresh.setOnRefreshListener(this);
         mBinding.swipeRefresh.setRefreshing(false);
 
+        mLandscape = getResources().getConfiguration().orientation ==
+                Configuration.ORIENTATION_LANDSCAPE;
+
         initData(savedInstanceState);
         initUI();
     }
@@ -78,17 +82,22 @@ public class MainActivity extends AppCompatActivity implements
         if (!savedInstanceState.containsKey(KEY_DATASET)) return;
 
         mData = savedInstanceState.getParcelable(KEY_DATASET);
-        RecipesGridAdapter adapter = (RecipesGridAdapter) mBinding.listRecyclerview.getAdapter();
-        adapter.setList(mData);
-        adapter.notifyDataSetChanged();
-
-        if (mData.size() > 0) {
+        if (mData == null)
+            onRefresh();
+        else if (mData.size() > 0) {
             if (savedInstanceState.containsKey(KEY_FIRST_VISIBLE_ITEM_POS))
                 firstVisibleItemPosition = savedInstanceState.getInt(KEY_FIRST_VISIBLE_ITEM_POS);
             else
                 firstVisibleItemPosition = 0;
             mBinding.listRecyclerview.smoothScrollToPosition(firstVisibleItemPosition);
         }
+
+        mGridLayout = savedInstanceState.getBoolean(KEY_SHOW_GRID, false);
+
+        RecipesGridAdapter adapter = (RecipesGridAdapter) mBinding.listRecyclerview.getAdapter();
+        adapter.setList(mData);
+        adapter.setLayout(showGridLayout());
+        adapter.notifyDataSetChanged();
     }
 
     @Override
@@ -98,6 +107,7 @@ public class MainActivity extends AppCompatActivity implements
         if (mData != null)
             outState.putParcelableArrayList(KEY_DATASET, new ArrayList<>(mData));
         outState.putInt(KEY_FIRST_VISIBLE_ITEM_POS, firstVisibleItemPosition);
+        outState.putBoolean(KEY_SHOW_GRID, mGridLayout);
     }
 
     private void showProgressBar() {
@@ -111,36 +121,68 @@ public class MainActivity extends AppCompatActivity implements
 
     private void initUI() {
         initRecipesList();
-        RecipesGridAdapter adapter = (RecipesGridAdapter) mBinding.listRecyclerview.getAdapter();
+
+        if (mLandscape)
+            mBinding.changeLayoutFab.setVisibility(View.GONE);
+        else
+            initFab();
+    }
+
+    private void initFab() {
+        mBinding.changeLayoutFab.setVisibility(View.VISIBLE);
 
         int fabResource = R.drawable.ic_view_module;
-        if (adapter.isListLayout()) fabResource = R.drawable.ic_view_list;
+        if (mGridLayout) fabResource = R.drawable.ic_view_list;
         mBinding.changeLayoutFab.setImageResource(fabResource);
         mBinding.changeLayoutFab.setOnClickListener(v -> {
-            updateListLayout(!adapter.isListLayout());
+            mGridLayout = !mGridLayout;
+
+            GridLayoutManager layoutManager = (GridLayoutManager)
+                    mBinding.listRecyclerview.getLayoutManager();
+            RecipesGridAdapter adapter = (RecipesGridAdapter)
+                    mBinding.listRecyclerview.getAdapter();
+
+            updateFab();
+            updateListLayout(layoutManager, adapter);
         });
     }
 
-    private void updateListLayout(boolean listLayout) {
-        RecipesGridAdapter adapter = (RecipesGridAdapter)
-                mBinding.listRecyclerview.getAdapter();
-        GridLayoutManager layoutManager = (GridLayoutManager)
-                mBinding.listRecyclerview.getLayoutManager();
-        int cols = 1;
+    private void updateFab() {
+        if (mLandscape)
+            mBinding.changeLayoutFab.setVisibility(View.GONE);
+        else {
+            mBinding.changeLayoutFab.setVisibility(View.VISIBLE);
 
-        if (listLayout) {
-            mBinding.changeLayoutFab.setImageResource(R.drawable.ic_view_module);
-            adapter.toListLayout();
+            if (showGridLayout())
+                mBinding.changeLayoutFab.setImageResource(R.drawable.ic_view_list);
+            else
+                mBinding.changeLayoutFab.setImageResource(R.drawable.ic_view_module);
+        }
+    }
+
+    private void updateListLayout(@NonNull GridLayoutManager layoutManager, @NonNull RecipesGridAdapter adapter) {
+        adapter.setLayout(mGridLayout);
+
+        int cols = 1;
+        if (showGridLayout()) cols = numberOfColumns();
+        layoutManager.setSpanCount(cols);
+
+        if (mBinding.listRecyclerview.getAdapter() == null) {
+            mBinding.listRecyclerview.setAdapter(adapter);
+            adapter.notifyDataSetChanged();
         }
         else {
-            mBinding.changeLayoutFab.setImageResource(R.drawable.ic_view_list);
-            cols = numberOfColumns();
-            adapter.toGridLayout();
+            mBinding.listRecyclerview.getRecycledViewPool().clear();
+            mBinding.listRecyclerview.swapAdapter(adapter, true);
+            adapter.notifyItemRangeChanged(0, adapter.getItemCount());
         }
 
-        layoutManager.setSpanCount(cols);
-        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
-        adapter.setList(mData);
+        mBinding.listRecyclerview.scheduleLayoutAnimation();
+    }
+
+    private boolean showGridLayout() {
+        boolean isTablet = getResources().getBoolean(R.bool.isTablet);
+        return isTablet || mLandscape || mGridLayout;
     }
 
     private int numberOfColumns() {
@@ -148,7 +190,7 @@ public class MainActivity extends AppCompatActivity implements
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
 
         // You can change this divider to adjust the size of the poster
-        int widthDivider = 400;
+        int widthDivider = getResources().getDimensionPixelSize(R.dimen.grid_item_recipe_width);
         int width = displayMetrics.widthPixels;
         int nColumns = width / widthDivider;
         if (nColumns < 2 ) return 2;	// to keep the grid aspect
@@ -156,28 +198,20 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     private void initRecipesList() {
-        final GridLayoutManager layoutManager = new GridLayoutManager(this, 1,
+        GridLayoutManager layoutManager = new GridLayoutManager(this, 1,
                 GridLayoutManager.VERTICAL, false);
         mBinding.listRecyclerview.setLayoutManager(layoutManager);
 
-        final LayoutAnimationController animation = AnimationUtils.loadLayoutAnimation(this,
-                R.anim.layout_animation_from_bottom);
-        mBinding.listRecyclerview.setLayoutAnimation(animation);
+        RecipesGridAdapter adapter = new RecipesGridAdapter(showGridLayout(), this, this);
+        adapter.setList(mData);
 
-        final RecipesGridAdapter recipesAdapter = new RecipesGridAdapter(this, this);
-        mBinding.listRecyclerview.setAdapter(recipesAdapter);
+        updateListLayout(layoutManager, adapter);
         mBinding.listRecyclerview.setHasFixedSize(true);
-
-        recipesAdapter.setList(mData);
-        recipesAdapter.notifyDataSetChanged();
-        mBinding.listRecyclerview.scheduleLayoutAnimation();
-
         mBinding.listRecyclerview.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
 
-                lastItemPosition = layoutManager.findLastVisibleItemPosition();
                 firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition();
             }
         });
@@ -210,6 +244,8 @@ public class MainActivity extends AppCompatActivity implements
     private void initData(Bundle savedInstanceState) {
         if (savedInstanceState == null || !savedInstanceState.containsKey(KEY_DATASET))
             onRefresh();
+        mGridLayout = savedInstanceState != null &&
+                savedInstanceState.getBoolean(KEY_SHOW_GRID, false);
     }
 
     private void handleRecipes() {
