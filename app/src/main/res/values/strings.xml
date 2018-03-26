@@ -28,4 +28,10 @@
     <string name="step_number_placeholder">1</string>
     <string name="prev_step">Previous step</string>
     <string name="next_step">Next step</string>
+
+    <string name="label_recipe_not_selected">Recipe not selected</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="label_step_not_selected">Step not selected.</string>
 </resources>

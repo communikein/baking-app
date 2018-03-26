@@ -5,6 +5,7 @@ import android.content.res.Configuration;
 import android.databinding.DataBindingUtil;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.Loader;
@@ -22,9 +23,11 @@ import java.util.List;
 import javax.inject.Inject;
 
 import dagger.android.AndroidInjection;
+import it.communikein.bakingapp.AppExecutors;
 import it.communikein.bakingapp.R;
 import it.communikein.bakingapp.RecipesGridAdapter;
-import it.communikein.bakingapp.data.database.RecipesDao;
+import it.communikein.bakingapp.data.database.BakingDatabase;
+import it.communikein.bakingapp.data.model.Step;
 import it.communikein.bakingapp.databinding.ActivityMainBinding;
 import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.data.network.NetworkUtils;
@@ -32,26 +35,39 @@ import it.communikein.bakingapp.data.network.RecipesLoader;
 
 public class MainActivity extends AppCompatActivity implements
         RecipesGridAdapter.RecipeClickCallback, LoaderManager.LoaderCallbacks,
-        SwipeRefreshLayout.OnRefreshListener {
+        SwipeRefreshLayout.OnRefreshListener,
+        RecipeDetailFragment.OnFavouriteClickListener, RecipeDetailFragment.OnStepClickListener {
 
     private static final String LOG_TAG = MainActivity.class.getSimpleName();
 
     private static final String KEY_DATASET = "dataset";
     private static final String KEY_FIRST_VISIBLE_ITEM_POS = "first_visible_item_pos";
     private static final String KEY_SHOW_GRID = "show_grid";
+    private static final String KEY_SELECTED_RECIPE = "selected_recipe";
 
     private static final int LOADER_RECIPES_ID = 1001;
 
     private ActivityMainBinding mBinding;
+    private RecipeDetailFragment mRecipeDetailFragment;
+
+    private RecyclerView listRecyclerview;
+    private FloatingActionButton changeLayoutFab;
+    private SwipeRefreshLayout swipeRefresh;
 
     private List<Recipe> mData;
+    private Recipe mSelectedRecipe;
 
     private int firstVisibleItemPosition = -1;
     private boolean mLandscape;
     private boolean mGridLayout;
+    private boolean mIsTablet;
+    private boolean mHasSecondPane;
 
     @Inject
-    RecipesDao recipesDao;
+    BakingDatabase bakingDatabase;
+
+    @Inject
+    AppExecutors mExecutors;
 
 
     @Override
@@ -62,14 +78,20 @@ public class MainActivity extends AppCompatActivity implements
 
         setSupportActionBar(mBinding.toolbar);
 
+        swipeRefresh = findViewById(R.id.swipeRefresh);
+        listRecyclerview = findViewById(R.id.list_recyclerview);
+        changeLayoutFab = findViewById(R.id.change_layout_fab);
+
         /* Show data downloading */
-        mBinding.swipeRefresh.setOnRefreshListener(this);
-        mBinding.swipeRefresh.setRefreshing(false);
+        swipeRefresh.setOnRefreshListener(this);
+        swipeRefresh.setRefreshing(false);
 
         mLandscape = getResources().getConfiguration().orientation ==
                 Configuration.ORIENTATION_LANDSCAPE;
+        mIsTablet = getResources().getBoolean(R.bool.isTablet);
+        mHasSecondPane = findViewById(R.id.panes_divider) != null;
 
-        initData(savedInstanceState);
+        parseData(savedInstanceState);
         initUI();
     }
 
@@ -77,27 +99,7 @@ public class MainActivity extends AppCompatActivity implements
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
 
-        hideProgressBar();
-        if (savedInstanceState == null) return;
-        if (!savedInstanceState.containsKey(KEY_DATASET)) return;
-
-        mData = savedInstanceState.getParcelable(KEY_DATASET);
-        if (mData == null)
-            onRefresh();
-        else if (mData.size() > 0) {
-            if (savedInstanceState.containsKey(KEY_FIRST_VISIBLE_ITEM_POS))
-                firstVisibleItemPosition = savedInstanceState.getInt(KEY_FIRST_VISIBLE_ITEM_POS);
-            else
-                firstVisibleItemPosition = 0;
-            mBinding.listRecyclerview.smoothScrollToPosition(firstVisibleItemPosition);
-        }
-
-        mGridLayout = savedInstanceState.getBoolean(KEY_SHOW_GRID, false);
-
-        RecipesGridAdapter adapter = (RecipesGridAdapter) mBinding.listRecyclerview.getAdapter();
-        adapter.setList(mData);
-        adapter.setLayout(showGridLayout());
-        adapter.notifyDataSetChanged();
+        parseData(savedInstanceState);
     }
 
     @Override
@@ -106,41 +108,50 @@ public class MainActivity extends AppCompatActivity implements
 
         if (mData != null)
             outState.putParcelableArrayList(KEY_DATASET, new ArrayList<>(mData));
+        if (mSelectedRecipe != null)
+            outState.putParcelable(KEY_SELECTED_RECIPE, mSelectedRecipe);
+
         outState.putInt(KEY_FIRST_VISIBLE_ITEM_POS, firstVisibleItemPosition);
         outState.putBoolean(KEY_SHOW_GRID, mGridLayout);
     }
 
     private void showProgressBar() {
-        mBinding.swipeRefresh.setRefreshing(true);
+        swipeRefresh.setRefreshing(true);
     }
 
     private void hideProgressBar() {
-        mBinding.swipeRefresh.setRefreshing(false);
+        swipeRefresh.setRefreshing(false);
     }
 
 
     private void initUI() {
         initRecipesList();
 
-        if (mLandscape)
-            mBinding.changeLayoutFab.setVisibility(View.GONE);
+        if (mLandscape || mIsTablet)
+            changeLayoutFab.setVisibility(View.GONE);
         else
             initFab();
+
+        if (mHasSecondPane) {
+            mRecipeDetailFragment = (RecipeDetailFragment) getSupportFragmentManager()
+                    .findFragmentById(R.id.recipe_detail_fragment);
+            updateSecondPane();
+        }
     }
 
     private void initFab() {
-        mBinding.changeLayoutFab.setVisibility(View.VISIBLE);
+        changeLayoutFab.setVisibility(View.VISIBLE);
 
         int fabResource = R.drawable.ic_view_module;
         if (mGridLayout) fabResource = R.drawable.ic_view_list;
-        mBinding.changeLayoutFab.setImageResource(fabResource);
-        mBinding.changeLayoutFab.setOnClickListener(v -> {
+        changeLayoutFab.setImageResource(fabResource);
+        changeLayoutFab.setOnClickListener(v -> {
             mGridLayout = !mGridLayout;
 
             GridLayoutManager layoutManager = (GridLayoutManager)
-                    mBinding.listRecyclerview.getLayoutManager();
+                    listRecyclerview.getLayoutManager();
             RecipesGridAdapter adapter = (RecipesGridAdapter)
-                    mBinding.listRecyclerview.getAdapter();
+                    listRecyclerview.getAdapter();
 
             updateFab();
             updateListLayout(layoutManager, adapter);
@@ -149,14 +160,14 @@ public class MainActivity extends AppCompatActivity implements
 
     private void updateFab() {
         if (mLandscape)
-            mBinding.changeLayoutFab.setVisibility(View.GONE);
+            changeLayoutFab.setVisibility(View.GONE);
         else {
-            mBinding.changeLayoutFab.setVisibility(View.VISIBLE);
+            changeLayoutFab.setVisibility(View.VISIBLE);
 
             if (showGridLayout())
-                mBinding.changeLayoutFab.setImageResource(R.drawable.ic_view_list);
+                changeLayoutFab.setImageResource(R.drawable.ic_view_list);
             else
-                mBinding.changeLayoutFab.setImageResource(R.drawable.ic_view_module);
+                changeLayoutFab.setImageResource(R.drawable.ic_view_module);
         }
     }
 
@@ -167,22 +178,21 @@ public class MainActivity extends AppCompatActivity implements
         if (showGridLayout()) cols = numberOfColumns();
         layoutManager.setSpanCount(cols);
 
-        if (mBinding.listRecyclerview.getAdapter() == null) {
-            mBinding.listRecyclerview.setAdapter(adapter);
+        if (listRecyclerview.getAdapter() == null) {
+            listRecyclerview.setAdapter(adapter);
             adapter.notifyDataSetChanged();
         }
         else {
-            mBinding.listRecyclerview.getRecycledViewPool().clear();
-            mBinding.listRecyclerview.swapAdapter(adapter, true);
+            listRecyclerview.getRecycledViewPool().clear();
+            listRecyclerview.swapAdapter(adapter, true);
             adapter.notifyItemRangeChanged(0, adapter.getItemCount());
         }
 
-        mBinding.listRecyclerview.scheduleLayoutAnimation();
+        listRecyclerview.scheduleLayoutAnimation();
     }
 
     private boolean showGridLayout() {
-        boolean isTablet = getResources().getBoolean(R.bool.isTablet);
-        return isTablet || mLandscape || mGridLayout;
+        return (mIsTablet && !mLandscape) || (!mIsTablet && mLandscape) || mGridLayout;
     }
 
     private int numberOfColumns() {
@@ -200,14 +210,14 @@ public class MainActivity extends AppCompatActivity implements
     private void initRecipesList() {
         GridLayoutManager layoutManager = new GridLayoutManager(this, 1,
                 GridLayoutManager.VERTICAL, false);
-        mBinding.listRecyclerview.setLayoutManager(layoutManager);
+        listRecyclerview.setLayoutManager(layoutManager);
 
         RecipesGridAdapter adapter = new RecipesGridAdapter(showGridLayout(), this, this);
         adapter.setList(mData);
 
         updateListLayout(layoutManager, adapter);
-        mBinding.listRecyclerview.setHasFixedSize(true);
-        mBinding.listRecyclerview.addOnScrollListener(new RecyclerView.OnScrollListener() {
+        listRecyclerview.setHasFixedSize(true);
+        listRecyclerview.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
@@ -217,8 +227,54 @@ public class MainActivity extends AppCompatActivity implements
         });
     }
 
+    private void parseData(Bundle savedInstanceState) {
+        if (savedInstanceState == null || !savedInstanceState.containsKey(KEY_DATASET))
+            onRefresh();
+
+        if (savedInstanceState != null) {
+            hideProgressBar();
+
+            mGridLayout = savedInstanceState.getBoolean(KEY_SHOW_GRID, false);
+            mSelectedRecipe = savedInstanceState.getParcelable(KEY_SELECTED_RECIPE);
+            mData = savedInstanceState.getParcelableArrayList(KEY_DATASET);
+
+            if (mData == null)
+                onRefresh();
+            else if (mData.size() > 0) {
+                if (savedInstanceState.containsKey(KEY_FIRST_VISIBLE_ITEM_POS))
+                    firstVisibleItemPosition = savedInstanceState.getInt(KEY_FIRST_VISIBLE_ITEM_POS);
+                else
+                    firstVisibleItemPosition = 0;
+                listRecyclerview.smoothScrollToPosition(firstVisibleItemPosition);
+            }
+
+            RecipesGridAdapter adapter = (RecipesGridAdapter) listRecyclerview.getAdapter();
+            if (adapter == null)
+                adapter = new RecipesGridAdapter(showGridLayout(), this, this);
+
+            adapter.setList(mData);
+            adapter.setLayout(showGridLayout());
+            adapter.notifyDataSetChanged();
+        }
+    }
+
+    private void updateSecondPane() {
+        if (mSelectedRecipe == null) {
+            mBinding.labelRecipeNotSelected.setVisibility(View.VISIBLE);
+            findViewById(R.id.recipe_detail_fragment).setVisibility(View.GONE);
+        }
+        else {
+            mBinding.labelRecipeNotSelected.setVisibility(View.GONE);
+            findViewById(R.id.recipe_detail_fragment).setVisibility(View.VISIBLE);
+
+            mRecipeDetailFragment.updateRecipe(mSelectedRecipe);
+        }
+    }
+
+
+
     private void startLoader(int loader_id) {
-        mBinding.swipeRefresh.setRefreshing(true);
+        showProgressBar();
 
         if (loader_id == LOADER_RECIPES_ID || NetworkUtils.isDeviceOnline(this)) {
             getSupportLoaderManager()
@@ -226,7 +282,7 @@ public class MainActivity extends AppCompatActivity implements
                     .forceLoad();
         }
         else {
-            mBinding.swipeRefresh.setRefreshing(false);
+            hideProgressBar();
 
             Snackbar.make(mBinding.coordinatorView, R.string.error_no_internet,
                     Snackbar.LENGTH_LONG).setAction(R.string.retry, v -> {
@@ -240,17 +296,9 @@ public class MainActivity extends AppCompatActivity implements
         }
     }
 
-
-    private void initData(Bundle savedInstanceState) {
-        if (savedInstanceState == null || !savedInstanceState.containsKey(KEY_DATASET))
-            onRefresh();
-        mGridLayout = savedInstanceState != null &&
-                savedInstanceState.getBoolean(KEY_SHOW_GRID, false);
-    }
-
     private void handleRecipes() {
         if (mData != null) {
-            RecipesGridAdapter adapter = (RecipesGridAdapter) mBinding.listRecyclerview.getAdapter();
+            RecipesGridAdapter adapter = (RecipesGridAdapter) listRecyclerview.getAdapter();
             adapter.setList(mData);
             adapter.notifyDataSetChanged();
         }
@@ -262,7 +310,7 @@ public class MainActivity extends AppCompatActivity implements
         switch (id) {
             case LOADER_RECIPES_ID:
                 showProgressBar();
-                return RecipesLoader.createRecipeLoader(this, recipesDao);
+                return RecipesLoader.createRecipeLoader(this, bakingDatabase.recipesDao());
 
             default:
                 throw new RuntimeException("Loader Not Implemented: " + id);
@@ -294,8 +342,49 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onRecipeClick(Recipe recipe) {
-        Intent intent = new Intent(this, RecipeDetailActivity.class);
-        intent.putExtra(RecipeDetailActivity.KEY_RECIPE, recipe);
+        mSelectedRecipe = recipe;
+
+        if (mIsTablet && mLandscape)
+            updateSecondPane();
+        else {
+            Intent intent = new Intent(this, RecipeDetailActivity.class);
+            intent.putExtra(StepDetailActivity.KEY_RECIPE, mSelectedRecipe);
+            startActivity(intent);
+        }
+    }
+
+    @Override
+    public void onFavouriteClicked(Recipe recipe) {
+        mExecutors.diskIO().execute(() -> {
+            boolean added;
+            if (recipe.isFavourite()) {
+                added = false;
+                bakingDatabase.recipesDao().deleteRecipe(recipe.getId());
+            }
+            else {
+                added = true;
+
+                bakingDatabase.recipesDao().addRecipe(recipe);
+                bakingDatabase.ingredientsDao().addIngredients(recipe.getIngredients());
+                bakingDatabase.stepsDao().addSteps(recipe.getSteps());
+            }
+
+            recipe.setFavourite(!recipe.isFavourite());
+
+            mRecipeDetailFragment.databaseUpdated(added);
+        });
+    }
+
+    @Override
+    public void onStepClicked(Step step) {
+        Intent intent;
+        if (mIsTablet && mLandscape)
+            intent = new Intent(this, RecipeDetailActivity.class);
+        else
+            intent = new Intent(this, StepDetailActivity.class);
+
+        intent.putExtra(StepDetailActivity.KEY_RECIPE, mSelectedRecipe);
+        intent.putExtra(StepDetailActivity.KEY_SELECTED_STEP, step);
         startActivity(intent);
     }
 }

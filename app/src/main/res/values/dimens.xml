@@ -12,4 +12,5 @@ http://developer.android.com/guide/topics/appwidgets/index.html#CreatingLayout
     <dimen name="widget_margin">8dp</dimen>
 
     <dimen name="grid_item_recipe_width">160dp</dimen>
+    <dimen name="video_height">200dp</dimen>
 </resources>

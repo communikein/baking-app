@@ -125,7 +125,7 @@ public class StepsListAdapter extends RecyclerView.Adapter<StepViewHolder> {
                 mBinding.upperLine.setVisibility(View.GONE);
                 mBinding.lowerLine.setVisibility(View.VISIBLE);
             }
-            else if(step.getStepNum() == getItemCount() - 1) {
+            else if(step.getStepNum() == mList.get(mList.size() - 1).getStepNum()) {
                 mBinding.upperLine.setVisibility(View.VISIBLE);
                 mBinding.lowerLine.setVisibility(View.GONE);
             }
@@ -134,7 +134,7 @@ public class StepsListAdapter extends RecyclerView.Adapter<StepViewHolder> {
                 mBinding.lowerLine.setVisibility(View.VISIBLE);
             }
 
-            mBinding.stepNumberTextview.setText(String.valueOf(step.getStepNum() + 1));
+            mBinding.stepNumberTextview.setText(String.valueOf(step.getStepNum()));
             mBinding.stepShortDescriptionTextview.setText(step.getShortDescription());
             mBinding.stepFullDescriptionTextview.setText(step.getDescription());
         }

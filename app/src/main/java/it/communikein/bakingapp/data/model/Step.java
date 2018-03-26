@@ -197,19 +197,25 @@ public class Step implements Parcelable {
         this.thumbnailURL = thumbnailURL;
     }
 
+
+
     @Override
     public boolean equals(Object obj) {
         if (! (obj instanceof Step)) return false;
 
         Step other = (Step) obj;
-        return this.getId() == other.getId();
+        return this.getStepNum() == other.getStepNum() &&
+                this.getRecipeId() == other.getRecipeId();
     }
 
     public boolean displayEquals(Object obj) {
         return this.equals(obj);
     }
 
-
+    @Override
+    public String toString() {
+        return getDescription();
+    }
 
     @Override
     public int describeContents() {

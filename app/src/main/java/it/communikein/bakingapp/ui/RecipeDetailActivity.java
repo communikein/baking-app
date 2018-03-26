@@ -1,55 +1,43 @@
 package it.communikein.bakingapp.ui;
 
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.databinding.DataBindingUtil;
-import android.os.Build;
-import android.support.constraint.ConstraintSet;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.support.v7.widget.LinearLayoutManager;
-import android.text.TextUtils;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-
-import com.squareup.picasso.Picasso;
-
-import java.util.ArrayList;
 
 import javax.inject.Inject;
 
 import dagger.android.AndroidInjection;
 import it.communikein.bakingapp.AppExecutors;
 import it.communikein.bakingapp.R;
-import it.communikein.bakingapp.StepsListAdapter;
-import it.communikein.bakingapp.Utils;
-import it.communikein.bakingapp.data.contentprovider.RecipeContract;
 import it.communikein.bakingapp.data.database.BakingDatabase;
 import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.data.model.Step;
 import it.communikein.bakingapp.databinding.ActivityRecipeDetailBinding;
 
 public class RecipeDetailActivity extends AppCompatActivity implements
-        StepsListAdapter.StepClickCallback{
+        RecipeDetailFragment.OnFavouriteClickListener, RecipeDetailFragment.OnStepClickListener, StepDetailFragment.OnChangeStepListener {
 
-    public static final String KEY_RECIPE = "recipe";
+    public static final String KEY_RECIPE = StepDetailActivity.KEY_RECIPE;
+    public static final String KEY_SELECTED_STEP = StepDetailActivity.KEY_SELECTED_STEP;
 
     ActivityRecipeDetailBinding mBinding;
+    RecipeDetailFragment mRecipeDetailFragment;
+    StepDetailFragment mStepDetailFragment;
+
+    @Inject
+    BakingDatabase bakingDatabase;
+
+    @Inject
+    AppExecutors mExecutors;
 
     private Recipe mRecipe;
-
-    @Inject
-    public AppExecutors mExecutors;
-
-    @Inject
-    public BakingDatabase mDatabase;
-
-
-    public interface FavouriteRecipeUpdateListener {
-        void onFavouriteRecipeUpdated(Recipe recipe);
-    }
+    private Step mSelectedStep;
 
 
     @Override
@@ -59,8 +47,9 @@ public class RecipeDetailActivity extends AppCompatActivity implements
 
         mBinding = DataBindingUtil.setContentView(this, R.layout.activity_recipe_detail);
 
-        parseData();
+        parseData(savedInstanceState);
         initUI();
+        initToolbar();
     }
 
     @Override
@@ -68,6 +57,7 @@ public class RecipeDetailActivity extends AppCompatActivity implements
         super.onSaveInstanceState(outState);
 
         outState.putParcelable(KEY_RECIPE, mRecipe);
+        outState.putParcelable(KEY_SELECTED_STEP, mSelectedStep);
     }
 
     @Override
@@ -76,18 +66,24 @@ public class RecipeDetailActivity extends AppCompatActivity implements
 
         if (savedInstanceState.containsKey(KEY_RECIPE))
             mRecipe = savedInstanceState.getParcelable(KEY_RECIPE);
+        if (savedInstanceState.containsKey(KEY_SELECTED_STEP))
+            mSelectedStep = savedInstanceState.getParcelable(KEY_SELECTED_STEP);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        if (id == android.R.id.home)
-            NavUtils.navigateUpFromSameTask(this);
+        switch (id) {
+            case android.R.id.home:
+                onBackPressed();
+                return true;
 
-        return super.onOptionsItemSelected(item);
+            default:
+                return super.onOptionsItemSelected(item);
+        }
     }
 
-    private void parseData() {
+    private void parseData(Bundle savedInstanceState) {
         Intent startIntent = getIntent();
         if (startIntent == null) {
             finish();
@@ -95,134 +91,103 @@ public class RecipeDetailActivity extends AppCompatActivity implements
         }
 
         mRecipe = startIntent.getParcelableExtra(KEY_RECIPE);
+        mSelectedStep = startIntent.getParcelableExtra(KEY_SELECTED_STEP);
+
+        if (savedInstanceState != null)
+            mSelectedStep = savedInstanceState.getParcelable(KEY_SELECTED_STEP);
     }
 
     private void initUI() {
-        if (mRecipe == null) return;
+        mRecipeDetailFragment = (RecipeDetailFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.recipe_detail_fragment);
+        mRecipeDetailFragment.updateRecipe(mRecipe);
+        mRecipeDetailFragment.setFavouriteClickListener(this);
+        mRecipeDetailFragment.setStepClickListener(this);
 
-        updateUI();
+        mStepDetailFragment = (StepDetailFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.step_detail_fragment);
+        if (mBinding.panesDivider != null) {
+            updateSecondPane();
 
-        mBinding.nameTextview.setText(mRecipe.getName());
-        mBinding.servingsTextview.setText(String.valueOf(mRecipe.getServings()));
-        mBinding.ingredientsTextview.setText(mRecipe.printIngredients());
-
-        if (!TextUtils.isEmpty(mRecipe.getImage()))
-            Picasso.get()
-                    .load(mRecipe.getImage())
-                    .error(Utils.getDrawableColored(R.drawable.ic_broken_image,
-                            R.color.black, this))
-                    .placeholder(Utils.getDrawableColored(R.drawable.ic_image,
-                            R.color.black, this))
-                    .into(mBinding.recipeImageview);
-
-        initToolbar();
-        initFab();
-        initStepsList();
+            mStepDetailFragment.updateRecipe(mRecipe);
+            mStepDetailFragment.updateSelectedStep(mSelectedStep);
+            mStepDetailFragment.setStepChangedListener(this);
+        }
     }
 
-    private void updateUI() {
-        if (TextUtils.isEmpty(mRecipe.getImage())) {
-            mBinding.recipeImageContainer.setVisibility(View.GONE);
-
-            ConstraintSet constraintSet = new ConstraintSet();
-            constraintSet.clone(mBinding.constraintView);
-
-            constraintSet.connect(R.id.recipe_info_container, ConstraintSet.TOP,
-                    ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-            constraintSet.connect(R.id.recipe_info_container, ConstraintSet.START,
-                    ConstraintSet.PARENT_ID, ConstraintSet.START);
-            constraintSet.connect(R.id.recipe_info_container, ConstraintSet.END,
-                    ConstraintSet.PARENT_ID, ConstraintSet.END);
-            constraintSet.connect(R.id.label_steps, ConstraintSet.TOP,
-                    R.id.recipe_info_container, ConstraintSet.BOTTOM);
-
-            constraintSet.applyTo(mBinding.constraintView);
-
-            ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams)
-                    mBinding.recipeInfoContainer.getLayoutParams();
-            p.setMargins(0, 0, 0, 0);
-            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN) {
-                p.setMarginStart(0);
-                p.setMarginEnd(0);
-            }
-            mBinding.recipeInfoContainer.requestLayout();
+    private void updateSecondPane() {
+        if (mSelectedStep == null) {
+            mBinding.labelStepNotSelected.setVisibility(View.VISIBLE);
+            findViewById(R.id.step_detail_fragment).setVisibility(View.GONE);
+        }
+        else {
+            mBinding.labelStepNotSelected.setVisibility(View.GONE);
+            findViewById(R.id.step_detail_fragment).setVisibility(View.VISIBLE);
         }
     }
 
     private void initToolbar() {
         setSupportActionBar(mBinding.toolbar);
-        if (getSupportActionBar() != null)
+
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setTitle(mRecipe.getName());
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-
-        getSupportActionBar().setTitle(mRecipe.getName());
-    }
-
-    private void initFab() {
-        updateFab(mRecipe);
-
-        mBinding.favoriteFab.setOnClickListener(v -> {
-            updateFavourite(mRecipe, recipe -> mExecutors.mainThread().execute(() -> {
-                updateFab(recipe);
-
-                if (recipe.isFavourite())
-                    Snackbar.make(mBinding.coordinatorView, R.string.label_recipe_added_to_favourites,
-                            Snackbar.LENGTH_LONG).show();
-                else
-                    Snackbar.make(mBinding.coordinatorView, R.string.label_recipe_removed_from_favourites,
-                            Snackbar.LENGTH_LONG).show();
-            }));
-        });
-    }
-
-    private void updateFab(Recipe recipe) {
-        if (recipe.isFavourite())
-            mBinding.favoriteFab.setImageDrawable(Utils.getDrawableColored(
-                    R.drawable.ic_star_border,
-                    R.color.black,
-                    this));
-        else
-            mBinding.favoriteFab.setImageDrawable(Utils.getDrawableColored(
-                    R.drawable.ic_star,
-                    R.color.black,
-                    this));
-    }
-
-    private void initStepsList() {
-        LinearLayoutManager layoutManager = new LinearLayoutManager(this,
-                LinearLayoutManager.VERTICAL,
-                false);
-        mBinding.stepsList.setLayoutManager(layoutManager);
-
-        StepsListAdapter stepsListAdapter = new StepsListAdapter(this);
-        mBinding.stepsList.setAdapter(stepsListAdapter);
-
-        if (mRecipe.getSteps() != null) {
-            stepsListAdapter.setList(mRecipe.getSteps());
-            stepsListAdapter.notifyDataSetChanged();
         }
     }
 
     @Override
-    public void onStepClick(Step step) {
-        Intent intent = new Intent(this, StepDetailActivity.class);
-        intent.putExtra(StepDetailActivity.KEY_RECIPE, mRecipe);
-        intent.putExtra(StepDetailActivity.KEY_STEP_SELECTED, step.getStepNum());
-        startActivity(intent);
-    }
-
-    private void updateFavourite(Recipe recipe, FavouriteRecipeUpdateListener listener) {
+    public void onFavouriteClicked(Recipe recipe) {
         mExecutors.diskIO().execute(() -> {
+            boolean added;
             if (recipe.isFavourite()) {
-                mDatabase.recipesDao().deleteRecipe(recipe.getId());
+                added = false;
+                bakingDatabase.recipesDao().deleteRecipe(recipe.getId());
             }
             else {
-                mDatabase.recipesDao().addRecipe(recipe);
-                mDatabase.ingredientsDao().addIngredients(recipe.getIngredients());
-                mDatabase.stepsDao().addSteps(recipe.getSteps());
-            }
+                added = true;
 
+                bakingDatabase.recipesDao().addRecipe(recipe);
+                bakingDatabase.ingredientsDao().addIngredients(recipe.getIngredients());
+                bakingDatabase.stepsDao().addSteps(recipe.getSteps());
+            }
             recipe.setFavourite(!recipe.isFavourite());
-            listener.onFavouriteRecipeUpdated(recipe);
+
+            runOnUiThread(() -> mRecipeDetailFragment.updateFab(added));
+            String message;
+            if (added)
+                message = getString(R.string.label_recipe_added_to_favourites);
+            else
+                message = getString(R.string.label_recipe_removed_from_favourites);
+
+            Snackbar.make(mRecipeDetailFragment.getCoordinatorLayout(),
+                    message, Snackbar.LENGTH_LONG).show();
         });
+    }
+
+    @Override
+    public void onStepClicked(Step step) {
+        this.mSelectedStep = step;
+        if (mBinding.panesDivider != null) {
+            mBinding.labelStepNotSelected.setVisibility(View.GONE);
+            findViewById(R.id.step_detail_fragment).setVisibility(View.VISIBLE);
+            mStepDetailFragment.updateSelectedStep(mSelectedStep);
+        }
+        else {
+            Intent intent = new Intent(this, StepDetailActivity.class);
+            intent.putExtra(StepDetailActivity.KEY_RECIPE, mRecipe);
+            intent.putExtra(StepDetailActivity.KEY_SELECTED_STEP, mSelectedStep);
+            startActivity(intent);
+        }
+    }
+
+    @Override
+    public void onStepChanged(Step step) {
+        this.mSelectedStep = step;
+        int position = mRecipe.getSteps().indexOf(mSelectedStep);
+        int maxPosition = mRecipe.getSteps().size() -1;
+
+        if (position < maxPosition)
+            mRecipeDetailFragment.mBinding.stepsList.scrollToPosition(maxPosition);
+        mRecipeDetailFragment.mBinding.stepsList.scrollToPosition(position);
     }
 }
