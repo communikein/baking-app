@@ -38,9 +38,6 @@ dependencies {
     /* For Room */
     implementation 'android.arch.persistence.room:runtime:1.0.0'
     annotationProcessor 'android.arch.persistence.room:compiler:1.0.0'
-    /* For ViewModel and LiveData */
-    implementation 'android.arch.lifecycle:extensions:1.1.0'
-    implementation 'android.arch.lifecycle:common-java8:1.1.0'
 
     /* For Dagger 2 */
     implementation 'com.google.dagger:dagger-android:2.11'

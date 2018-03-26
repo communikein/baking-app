@@ -8,7 +8,6 @@ import android.database.Cursor;
 
 import java.util.List;
 
-import it.communikein.bakingapp.data.model.Ingredient;
 import it.communikein.bakingapp.data.model.Step;
 
 @Dao

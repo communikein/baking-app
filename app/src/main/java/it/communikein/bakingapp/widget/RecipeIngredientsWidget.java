@@ -7,10 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.widget.RemoteViews;
 
-import java.util.ArrayList;
-
 import it.communikein.bakingapp.R;
-import it.communikein.bakingapp.data.model.Ingredient;
 import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.ui.RecipeDetailActivity;
 

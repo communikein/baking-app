@@ -2,7 +2,6 @@ package it.communikein.bakingapp.widget;
 
 import android.content.Context;
 import android.content.Intent;
-import android.os.IBinder;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
 

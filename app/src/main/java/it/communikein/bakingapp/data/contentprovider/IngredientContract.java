@@ -2,8 +2,6 @@ package it.communikein.bakingapp.data.contentprovider;
 
 import android.net.Uri;
 
-import it.communikein.bakingapp.data.model.Recipe;
-
 import static it.communikein.bakingapp.data.contentprovider.BakingContentProvider.BASE_CONTENT_URI;
 
 public class IngredientContract {

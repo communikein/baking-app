@@ -12,7 +12,6 @@ import android.os.Parcelable;
 import com.google.gson.annotations.SerializedName;
 
 import it.communikein.bakingapp.data.contentprovider.IngredientContract;
-import it.communikein.bakingapp.data.contentprovider.RecipeContract;
 
 import static android.arch.persistence.room.ForeignKey.CASCADE;
 import static it.communikein.bakingapp.data.contentprovider.IngredientContract.IngredientEntry.COLUMN_ID;

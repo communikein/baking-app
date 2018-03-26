@@ -9,7 +9,6 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 
 import java.util.ArrayList;
 
@@ -18,19 +17,12 @@ import javax.inject.Inject;
 import dagger.Lazy;
 import dagger.android.AndroidInjection;
 import dagger.android.AndroidInjector;
-import dagger.android.DaggerContentProvider;
 import dagger.android.DispatchingAndroidInjector;
 import dagger.android.HasContentProviderInjector;
-import it.communikein.bakingapp.BakingApp;
 import it.communikein.bakingapp.data.database.BakingDatabase;
-import it.communikein.bakingapp.data.database.IngredientsDao;
-import it.communikein.bakingapp.data.database.RecipesDao;
-import it.communikein.bakingapp.data.database.StepsDao;
 import it.communikein.bakingapp.data.model.Ingredient;
 import it.communikein.bakingapp.data.model.Recipe;
 import it.communikein.bakingapp.data.model.Step;
-
-import static it.communikein.bakingapp.data.contentprovider.StepContract.StepEntry.TABLE_NAME;
 
 
 public class BakingContentProvider extends ContentProvider implements
