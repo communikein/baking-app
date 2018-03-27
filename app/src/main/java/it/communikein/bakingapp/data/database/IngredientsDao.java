@@ -1,6 +1,5 @@
 package it.communikein.bakingapp.data.database;
 
-import android.arch.lifecycle.LiveData;
 import android.arch.persistence.room.Dao;
 import android.arch.persistence.room.Insert;
 import android.arch.persistence.room.Query;
@@ -24,9 +23,6 @@ public interface IngredientsDao {
 
     @Query("DELETE FROM ingredients WHERE recipe_id = :recipe_id")
     int deleteRecipeIngredients(int recipe_id);
-
-    @Query("SELECT * FROM ingredients WHERE recipe_id = :recipe_id")
-    LiveData<List<Ingredient>> getObservableRecipeIngredients(int recipe_id);
 
     @Query("SELECT * FROM ingredients WHERE recipe_id = :recipe_id")
     List<Ingredient> getRecipeIngredients(int recipe_id);
