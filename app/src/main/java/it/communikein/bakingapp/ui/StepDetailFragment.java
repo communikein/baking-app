@@ -4,6 +4,7 @@ package it.communikein.bakingapp.ui;
 import android.content.res.Configuration;
 import android.databinding.DataBindingUtil;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -45,6 +46,7 @@ public class StepDetailFragment extends Fragment {
     public static final String KEY_SELECTED_STEP = StepDetailActivity.KEY_SELECTED_STEP;
     public static final String KEY_PLAYER_WINDOW = "player_window";
     public static final String KEY_PLAYER_POSITION = "player_position";
+    //public static final String KEY_PLAYER_PLAY_WHEN_READY = "play_when_ready";
 
     OnChangeStepListener mStepChangesCallback;
     public interface OnChangeStepListener {
@@ -59,6 +61,8 @@ public class StepDetailFragment extends Fragment {
     SimpleExoPlayer mExoPlayer;
     private int mResumeWindow;
     private long mResumePosition;
+    //private boolean mPlayWhenReady;
+
     private boolean mLandscape;
     private boolean mIsTablet;
 
@@ -73,8 +77,7 @@ public class StepDetailFragment extends Fragment {
         mBinding = DataBindingUtil.inflate(inflater, R.layout.fragment_step_detail,
                 container, false);
 
-        Log.d(LOG_TAG, LOG_TAG + " - onCreateView");
-        printDebug(savedInstanceState, false);
+        //setRetainInstance(true);
 
         return mBinding.getRoot();
     }
@@ -87,21 +90,42 @@ public class StepDetailFragment extends Fragment {
                 Configuration.ORIENTATION_LANDSCAPE;
         mIsTablet = getResources().getBoolean(R.bool.isTablet);
 
-        Log.d(LOG_TAG, LOG_TAG + " - onViewCreated");
-        printDebug(savedInstanceState, false);
-
         initUI();
+    }
+
+    @Override
+    public void onActivityCreated(@Nullable Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+
+        parseData(savedInstanceState);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        updateUI();
     }
 
     @Override
     public void onPause() {
         super.onPause();
 
-        if (mExoPlayer != null) {
-            mResumeWindow = mExoPlayer.getCurrentWindowIndex();
-            mResumePosition = Math.max(0, mExoPlayer.getCurrentPosition());
-
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M && mExoPlayer != null) {
+            mExoPlayer.stop();
             mExoPlayer.release();
+            mExoPlayer = null;
+        }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.M && mExoPlayer != null) {
+            mExoPlayer.stop();
+            mExoPlayer.release();
+            mExoPlayer = null;
         }
     }
 
@@ -109,19 +133,25 @@ public class StepDetailFragment extends Fragment {
     public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
 
+        mResumeWindow = mExoPlayer.getCurrentWindowIndex();
+        mResumePosition = Math.max(0, mExoPlayer.getCurrentPosition());
+        //mPlayWhenReady = mExoPlayer.getPlayWhenReady();
+
         outState.putParcelable(KEY_RECIPE, mRecipe);
         outState.putParcelable(KEY_SELECTED_STEP, mSelectedStep);
         outState.putInt(KEY_PLAYER_WINDOW, mResumeWindow);
         outState.putLong(KEY_PLAYER_POSITION, mResumePosition);
-
-        Log.d(LOG_TAG, LOG_TAG + " - onSaveInstanceState");
-        printDebug(outState, true);
+        //outState.putBoolean(KEY_PLAYER_PLAY_WHEN_READY, mPlayWhenReady);
     }
 
     @Override
     public void onViewStateRestored(@Nullable Bundle savedInstanceState) {
         super.onViewStateRestored(savedInstanceState);
 
+        parseData(savedInstanceState);
+    }
+
+    private void parseData(Bundle savedInstanceState) {
         if (savedInstanceState != null) {
             if (savedInstanceState.containsKey(KEY_RECIPE))
                 mRecipe = savedInstanceState.getParcelable(KEY_RECIPE);
@@ -134,12 +164,9 @@ public class StepDetailFragment extends Fragment {
                 mResumeWindow = savedInstanceState.getInt(KEY_PLAYER_WINDOW);
             if (savedInstanceState.containsKey(KEY_PLAYER_POSITION))
                 mResumePosition = savedInstanceState.getLong(KEY_PLAYER_POSITION);
+            //if (savedInstanceState.containsKey(KEY_PLAYER_PLAY_WHEN_READY))
+            //    mPlayWhenReady = savedInstanceState.getBoolean(KEY_PLAYER_PLAY_WHEN_READY);
         }
-
-        initUI();
-
-        Log.d(LOG_TAG, LOG_TAG + " - onViewStateRestored");
-        printDebug(savedInstanceState, false);
     }
 
     public void printDebug(Bundle savedInstanceState, boolean save) {
@@ -153,7 +180,8 @@ public class StepDetailFragment extends Fragment {
 
     public void updateRecipe(Recipe recipe) {
         mRecipe = recipe;
-        initUI();
+        if (mSelectedStep != null)
+            updateStepsControlButtons();
     }
 
     public void updateSelectedStep(Step step) {
@@ -161,7 +189,7 @@ public class StepDetailFragment extends Fragment {
 
         if (mExoPlayer != null)
             mExoPlayer.stop();
-        initUI();
+        updateUI();
     }
 
     private void initUI() {
@@ -170,8 +198,6 @@ public class StepDetailFragment extends Fragment {
         if (!mLandscape || mIsTablet)
             initStepsControlButtons();
         initPlayer();
-
-        updateUI();
     }
 
     private void updateUI() {
@@ -179,14 +205,15 @@ public class StepDetailFragment extends Fragment {
             mBinding.labelStepDetail.setText(mSelectedStep.getShortDescription());
             mBinding.stepDetailTextview.setText(mSelectedStep.getDescription());
 
+            if (!mBinding.nextStepButton.hasOnClickListeners() ||
+                    !mBinding.prevStepButton.hasOnClickListeners())
+                initStepsControlButtons();
             updateStepsControlButtons();
         }
         updatePlayer();
     }
 
     private void initStepsControlButtons() {
-        updateStepsControlButtons();
-
         mBinding.nextStepButton.setOnClickListener(v -> {
             mSelectedStep = mRecipe.getSteps().get(mRecipe.getSteps().indexOf(mSelectedStep) + 1);
             if (mStepChangesCallback != null)
@@ -212,12 +239,14 @@ public class StepDetailFragment extends Fragment {
     }
 
     private void updateStepsControlButtons() {
-        if (mSelectedStep == null)
+        Step firstStep = mRecipe.getSteps().get(0);
+        if (mSelectedStep.equals(firstStep))
             mBinding.prevStepButton.setVisibility(View.GONE);
         else
             mBinding.prevStepButton.setVisibility(View.VISIBLE);
 
-        if (mSelectedStep == mRecipe.getSteps().get(mRecipe.getSteps().size() -1))
+        Step lastStep = mRecipe.getSteps().get(mRecipe.getSteps().size() -1);
+        if (mSelectedStep.equals(lastStep))
             mBinding.nextStepButton.setVisibility(View.GONE);
         else
             mBinding.nextStepButton.setVisibility(View.VISIBLE);
@@ -240,6 +269,7 @@ public class StepDetailFragment extends Fragment {
     }
 
     public void enterFullScreen() {
+        mBinding.labelVideoNotAvailable.setVisibility(View.VISIBLE);
         mBinding.stepDetailContainer.setVisibility(View.GONE);
 
         ViewGroup.LayoutParams layoutParams = mBinding.playerView.getLayoutParams();
@@ -251,6 +281,7 @@ public class StepDetailFragment extends Fragment {
     }
 
     public void exitFullScreen() {
+        mBinding.labelVideoNotAvailable.setVisibility(View.GONE);
         mBinding.stepDetailContainer.setVisibility(View.VISIBLE);
 
         ViewGroup.LayoutParams layoutParams = mBinding.playerView.getLayoutParams();
@@ -262,6 +293,8 @@ public class StepDetailFragment extends Fragment {
     }
 
     private void updatePlayer() {
+        if (mExoPlayer == null) initPlayer();
+
         boolean hasVideo =
                 !TextUtils.isEmpty(mSelectedStep.getVideoURL()) ||
                 !TextUtils.isEmpty(mSelectedStep.getThumbnailURL());
@@ -277,9 +310,6 @@ public class StepDetailFragment extends Fragment {
                 constraintSet.applyTo(mBinding.constraintView);
             }
 
-            boolean haveResumePosition = mResumeWindow != C.INDEX_UNSET;
-            if (haveResumePosition)
-                mBinding.playerView.getPlayer().seekTo(mResumeWindow, mResumePosition);
 
             // Prepare the MediaSource.
             String userAgent = Util.getUserAgent(getActivity(), BakingApp.class.getName());
@@ -294,6 +324,10 @@ public class StepDetailFragment extends Fragment {
                     null,
                     null);
             mExoPlayer.prepare(mediaSource);
+
+            boolean haveResumePosition = mResumeWindow != C.INDEX_UNSET;
+            if (haveResumePosition)
+                mExoPlayer.seekTo(mResumeWindow, mResumePosition);
             mExoPlayer.setPlayWhenReady(true);
         }
         else {

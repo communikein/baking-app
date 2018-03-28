@@ -44,9 +44,6 @@ public class StepDetailActivity extends AppCompatActivity
                 Configuration.ORIENTATION_LANDSCAPE;
         mIsTablet = getResources().getBoolean(R.bool.isTablet);
 
-        Log.d(LOG_TAG, LOG_TAG + " - onCreate");
-        printDebug(savedInstanceState, false);
-
         parseData(savedInstanceState);
         initUI();
     }
@@ -65,17 +62,11 @@ public class StepDetailActivity extends AppCompatActivity
         super.onSaveInstanceState(outState);
 
         outState.putBoolean(KEY_FIRST_LAUNCH, false);
-
-        Log.d(LOG_TAG, LOG_TAG + " - onSaveInstanceState");
-        printDebug(outState, true);
     }
 
     @Override
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
-
-        Log.d(LOG_TAG, LOG_TAG + " - onRestoreInstanceState");
-        printDebug(savedInstanceState, false);
     }
 
     public void printDebug(Bundle savedInstanceState, boolean save) {

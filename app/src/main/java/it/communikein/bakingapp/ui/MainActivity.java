@@ -159,7 +159,7 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     private void updateFab() {
-        if (mLandscape)
+        if (mLandscape || mIsTablet)
             changeLayoutFab.setVisibility(View.GONE);
         else {
             changeLayoutFab.setVisibility(View.VISIBLE);
