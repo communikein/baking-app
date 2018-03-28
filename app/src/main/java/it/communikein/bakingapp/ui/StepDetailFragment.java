@@ -302,15 +302,6 @@ public class StepDetailFragment extends Fragment {
             mBinding.labelVideoNotAvailable.setVisibility(View.GONE);
             mBinding.playerView.setVisibility(View.VISIBLE);
 
-            if (!mLandscape || mIsTablet) {
-                ConstraintSet constraintSet = new ConstraintSet();
-                constraintSet.clone(mBinding.constraintView);
-                constraintSet.connect(R.id.label_step_detail, ConstraintSet.TOP,
-                        R.id.playerView, ConstraintSet.BOTTOM);
-                constraintSet.applyTo(mBinding.constraintView);
-            }
-
-
             // Prepare the MediaSource.
             String userAgent = Util.getUserAgent(getActivity(), BakingApp.class.getName());
             String videoURL = mSelectedStep.getVideoURL();
@@ -333,14 +324,6 @@ public class StepDetailFragment extends Fragment {
         else {
             mBinding.labelVideoNotAvailable.setVisibility(View.VISIBLE);
             mBinding.playerView.setVisibility(View.GONE);
-
-            if (!mLandscape || mIsTablet) {
-                ConstraintSet constraintSet = new ConstraintSet();
-                constraintSet.clone(mBinding.constraintView);
-                constraintSet.connect(R.id.label_step_detail, ConstraintSet.TOP,
-                        R.id.label_video_not_available, ConstraintSet.BOTTOM);
-                constraintSet.applyTo(mBinding.constraintView);
-            }
         }
     }
 

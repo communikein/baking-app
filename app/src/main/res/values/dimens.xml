@@ -13,4 +13,7 @@ http://developer.android.com/guide/topics/appwidgets/index.html#CreatingLayout
 
     <dimen name="grid_item_recipe_width">160dp</dimen>
     <dimen name="video_height">200dp</dimen>
+
+    <dimen name="recipe_image_card_width">160dp</dimen>
+    <dimen name="recipe_image_card_height">200dp</dimen>
 </resources>
