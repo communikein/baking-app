@@ -28,6 +28,7 @@ import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
 import com.google.android.exoplayer2.trackselection.TrackSelector;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
+import com.squareup.picasso.Picasso;
 
 import it.communikein.bakingapp.BakingApp;
 import it.communikein.bakingapp.R;
@@ -295,18 +296,16 @@ public class StepDetailFragment extends Fragment {
     private void updatePlayer() {
         if (mExoPlayer == null) initPlayer();
 
-        boolean hasVideo =
-                !TextUtils.isEmpty(mSelectedStep.getVideoURL()) ||
-                !TextUtils.isEmpty(mSelectedStep.getThumbnailURL());
+        boolean hasVideo = !TextUtils.isEmpty(mSelectedStep.getVideoURL());
+        boolean hasThumbnail = !TextUtils.isEmpty(mSelectedStep.getThumbnailURL());
         if (hasVideo) {
             mBinding.labelVideoNotAvailable.setVisibility(View.GONE);
+            mBinding.stepThumbnail.setVisibility(View.GONE);
             mBinding.playerView.setVisibility(View.VISIBLE);
 
             // Prepare the MediaSource.
             String userAgent = Util.getUserAgent(getActivity(), BakingApp.class.getName());
             String videoURL = mSelectedStep.getVideoURL();
-            if (TextUtils.isEmpty(videoURL))
-                videoURL = mSelectedStep.getThumbnailURL();
 
             MediaSource mediaSource = new ExtractorMediaSource(
                     Uri.parse(videoURL),
@@ -321,8 +320,16 @@ public class StepDetailFragment extends Fragment {
                 mExoPlayer.seekTo(mResumeWindow, mResumePosition);
             mExoPlayer.setPlayWhenReady(true);
         }
+        else if (hasThumbnail) {
+            mBinding.labelVideoNotAvailable.setVisibility(View.GONE);
+            mBinding.stepThumbnail.setVisibility(View.VISIBLE);
+            mBinding.playerView.setVisibility(View.GONE);
+
+            Picasso.get().load(mSelectedStep.getThumbnailURL()).into(mBinding.stepThumbnail);
+        }
         else {
             mBinding.labelVideoNotAvailable.setVisibility(View.VISIBLE);
+            mBinding.stepThumbnail.setVisibility(View.GONE);
             mBinding.playerView.setVisibility(View.GONE);
         }
     }
